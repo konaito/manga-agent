@@ -1,0 +1,122 @@
+{
+  "title": "デモ: はじめてのタスク管理",
+  "page_width": 1600,
+  "page_height": 2400,
+  "reading_direction": "rtl",
+  "global_art_prompt": "black and white Japanese manga, modern office slice-of-life, clean professional manga page, crisp ink lines, screentone shading, expressive faces, clear hands, clean panel borders, right-to-left manga reading flow, render all specified Japanese dialogue exactly as written, readable Japanese manga typesetting, consistent character designs",
+  "characters": {
+    "hana": "Hana Suzuki, Japanese woman in her late 20s, short bob hair, round glasses, casual cardigan over blouse. Quiet, thoughtful, slightly anxious when overwhelmed. Only Hana wears glasses.",
+    "taro": "Taro Yamada, Japanese man in his 30s, tall, short black hair, friendly smile, open-collar shirt. Supportive colleague, no glasses."
+  },
+  "quality_checks": [
+    "Hana always wears round glasses",
+    "No app logos or real brand names except the fictional product name in the final panel"
+  ],
+  "brand_strings": ["TaskFlow"],
+  "pages": [
+    {
+      "page": 1,
+      "title": "フック: 散らかったデスク",
+      "layout": "hook4",
+      "beat": "ki",
+      "panels": [
+        {
+          "id": "p01_01",
+          "art": "Large top hook panel. Hana sits at a cluttered desk covered in sticky notes and open browser tabs on her monitor. She rubs her temples, glasses visible, exhausted expression.",
+          "dialogue": [
+            {
+              "kind": "monologue",
+              "text": "また締め切りに追われてる"
+            }
+          ],
+          "pos": "top-wide"
+        },
+        {
+          "id": "p01_02",
+          "art": "Close-up of Hana's monitor showing a chaotic to-do list. Her hand hovers over the mouse, hesitant.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "午後3時"
+            }
+          ],
+          "pos": "row2-right"
+        },
+        {
+          "id": "p01_03",
+          "art": "Taro leans into the frame from the corridor doorway, holding two coffee cups, cheerful expression.",
+          "dialogue": [
+            {
+              "speaker": "たろう",
+              "text": "花さん、一息つこう"
+            }
+          ],
+          "pos": "row2-left"
+        },
+        {
+          "id": "p01_04",
+          "art": "Large bottom panel. Hana looks up at Taro with a tired but grateful smile. Coffee steam rises between them.",
+          "dialogue": [
+            {
+              "speaker": "はな",
+              "text": "ありがとう…助かる"
+            }
+          ],
+          "pos": "bottom-wide"
+        }
+      ]
+    },
+    {
+      "page": 2,
+      "title": "転換: 新しいツール",
+      "layout": "four",
+      "beat": "sho",
+      "panels": [
+        {
+          "id": "p02_01",
+          "art": "Over-the-shoulder shot. Hana looks at her laptop screen from behind. The screen shows a clean task board interface with the text 'TaskFlow'. Only the screen content is visible, not her face.",
+          "dialogue": [
+            {
+              "speaker": "たろう",
+              "text": "TaskFlow、試してみて"
+            }
+          ],
+          "pos": "row1-right"
+        },
+        {
+          "id": "p02_02",
+          "art": "Hana's face in close-up, eyes widening behind glasses, a spark of hope.",
+          "dialogue": [
+            {
+              "speaker": "はな",
+              "text": "…わかりやすい"
+            }
+          ],
+          "pos": "row1-left"
+        },
+        {
+          "id": "p02_03",
+          "art": "Wide shot of the office. Hana and Taro sit side by side at the desk, both looking at the screen. Warm afternoon light.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "小さな一歩"
+            }
+          ],
+          "pos": "row2-right"
+        },
+        {
+          "id": "p02_04",
+          "art": "Large bottom panel. Hana smiles genuinely for the first time, pushing her glasses up. Clean desk in the background.",
+          "dialogue": [
+            {
+              "speaker": "はな",
+              "text": "明日から、ちゃんと進められそう"
+            }
+          ],
+          "pos": "bottom-wide"
+        }
+      ]
+    }
+  ]
+}

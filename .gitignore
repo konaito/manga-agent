@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+.claude/
+.pytest_cache/
+
+# 生成物（全プロジェクト共通）
+**/manga/production/output/
