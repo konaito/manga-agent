@@ -252,6 +252,50 @@ def test_review_principles_include_ads_doc_for_carousel(tmp_path):
     assert "x_ads_manga_principles.md" not in mangagen.review_principles()  # 引数なし=book扱い
 
 
+def test_review_writes_agent_request_without_api_call(tmp_path, monkeypatch):
+    p = make_project(tmp_path, book_spec())
+
+    def fail_call_api(*args, **kwargs):
+        raise AssertionError("review must not call external APIs")
+
+    monkeypatch.setattr(mangagen, "call_api", fail_call_api)
+
+    mangagen.cmd_review(p, None)
+
+    request = p.latest / "qa" / "review_request.md"
+    payload = p.latest / "qa" / "review_payload.json"
+    assert request.exists()
+    assert payload.exists()
+    assert "JSONのみで返答" in request.read_text(encoding="utf-8")
+    data = json.loads(payload.read_text(encoding="utf-8"))
+    assert data["title"] == "テスト本"
+    assert data["format"] == "book"
+
+
+def test_qa_writes_agent_request_without_api_call(tmp_path, monkeypatch):
+    from PIL import Image
+
+    p = make_project(tmp_path, book_spec())
+    Image.new("RGB", (1600, 2400), "gray").save(p.page_png(1))
+
+    def fail_call_api(*args, **kwargs):
+        raise AssertionError("qa must not call external APIs")
+
+    monkeypatch.setattr(mangagen, "call_api", fail_call_api)
+
+    verdicts = mangagen.cmd_qa(p, type("Args", (), {"pages": None, "concurrency": 1})())
+
+    request = p.latest / "qa" / "page_01_request.md"
+    payload = p.latest / "qa" / "page_01_payload.json"
+    assert request.exists()
+    assert payload.exists()
+    assert verdicts[0]["verdict"] == "agent_review_required"
+    assert "Inspect the image directly" in request.read_text(encoding="utf-8")
+    data = json.loads(payload.read_text(encoding="utf-8"))
+    assert data["page"] == 1
+    assert data["image_path"].endswith("page_01.png")
+
+
 # ---------------------------------------------------------------- assemble
 
 def _put_dummy_cards(project, n):
@@ -289,3 +333,34 @@ def test_assemble_book_unchanged(tmp_path):
     mangagen.cmd_assemble(p, None)
     assert (p.latest / "book.pdf").exists()
     assert not (p.latest / "ad_copy.txt").exists()
+
+
+def test_text_render_instructions_distinguish_kinds():
+    speech = mangagen.text_render_instructions({"speaker": "ヒロ", "text": "うち、来る？"})
+    mono = mangagen.text_render_instructions({"kind": "monologue", "text": "見ない"})
+    cap = mangagen.text_render_instructions({"kind": "caption", "text": "翌朝"})
+    joined_speech = " ".join(speech).lower()
+    joined_mono = " ".join(mono).lower()
+    joined_cap = " ".join(cap).lower()
+    assert "oval" in joined_speech
+    assert "cloud-shaped" in joined_mono
+    assert "slanted rectangular" in joined_cap
+    assert "bubble-dot" not in joined_cap
+
+
+def test_build_prompt_includes_container_instructions(tmp_path):
+    spec = book_spec()
+    spec["pages"] = [{"page": 1, "title": "p1", "panels": [
+        {"id": "p1a", "pos": "top-wide", "art": "face",
+         "dialogue": [
+             {"speaker": "a", "text": "セリフ"},
+             {"kind": "monologue", "text": "心の声"},
+             {"kind": "caption", "text": "翌朝"},
+         ]},
+    ]}]
+    p = make_project(tmp_path, spec)
+    prompt = mangagen.build_prompt(p, p.page(1), "model-x")
+    assert "Container type: spoken dialogue" in prompt
+    assert "cloud-shaped thought balloon" in prompt
+    assert "slanted rectangular narration frame" in prompt
+    assert "TEXT CONTAINER CONSISTENCY" in prompt

@@ -1,27 +1,29 @@
 # mangagen 制作ハーネス
 
 `tools/mangagen.py` は、スペックJSON（storyboard）を単一ソースとする漫画制作ハーネス。
-スペックJSON（storyboard）を単一ソースとする漫画制作ハーネス。新規制作はこちらを使う。
+スペックJSON（storyboard）は画像生成工程の単一ソースであり、小説や漫画脚本の代替ではない。
 
 ## 設計思想（ハーネスエンジニアリングの原則を適用）
 
 ハーネス設計の一般原則（Fowler「Harness engineering」、evaluator-optimizerパターン等）をこのドメインに落とした構成:
 
-1. **二層制御 = feedforward + feedback**: 事前制御（スペック・スロット・テキスト契約・lint）と事後検証（ビジョンQA）の両方を持つ。事前だけでは効果が検証されず、事後だけでは同じ誤りを繰り返す。
-2. **決定論的レイヤーと推論的レイヤーの分離**: `lint` は純Pythonの確定チェック（無料・即時・確実）、`qa` はLLM判定（意味が見れるが非決定的・有料）。安い方を先に必ず通す（keep quality left）。実測コスト: 生成 ≈ $0.18/頁、QA ≈ $0.0012/頁。**QAは生成の約1/150なので、評価を惜しむ理由がない**。
-3. **生成と評価の分離**: 生成モデルは自己採点が甘い。独立した評価器（別モデル）が構造化JSON（grid転記→reader順走査→verdict）で判定する。
-4. **フィードバックは具体的修正指示として返す**: `fix` の再生成プロンプトにはQAが検出した個別エラー（「この文字列が欠落」「このコマが逆順」）を `PREVIOUS ATTEMPT FAILED QA` ブロックとして注入する。盲目リトライをしない。
-5. **ループには打ち切りとエスカレーション**: `fix` は attempts 回（既定2）で打ち切り、残ったfailページを「人間のレビューが必要」と明示報告する。打ち切りは失敗ではなく、スペックか基準の見直し信号。
-6. **verifier-guided best-of-N**: `gen --candidates N` でページごとにN候補を生成し、QAスコア（verdict順位→エラー数）で最良を採用。重要ページ（フック・クライマックス）に使う。
-7. **スペックが単一ソース**: ページ・コマ・キャスト識別子・品質チェック・参照画像をすべてstoryboard JSONに持つ。キャストが変わってもツールは編集しない。
+1. **二層制御 = feedforward + feedback**: 事前制御（スペック・スロット・テキスト契約・lint）と事後検証（エージェント画像QA）の両方を持つ。事前だけでは効果が検証されず、事後だけでは同じ誤りを繰り返す。
+2. **決定論的レイヤーと推論的レイヤーの分離**: `lint` は純Pythonの確定チェック（無料・即時・確実）、`review` / `qa` はコーディングエージェントが判断するための依頼パック生成（無料）。OpenRouterは画像出力だけに使う。
+3. **生成と評価の分離**: 生成モデルは自己採点が甘い。生成後はcoding agentが画像とspecを見比べ、構造化JSON（grid転記→reader順走査→verdict）で判定する。
+4. **フィードバックは具体的修正指示として返す**: `fix` の再生成プロンプトには保存済みQA結果の個別エラー（「この文字列が欠落」「このコマが逆順」）を `PREVIOUS ATTEMPT FAILED QA` ブロックとして注入する。盲目リトライをしない。
+5. **ループには打ち切りとエスカレーション**: `fix` は再生成後に新しいQA依頼を作り、追加判断をcoding agentへ戻す。自動で外部QAを回さない。
+6. **best-of-Nは無効化**: 候補選択には画像QAが必要なため、OpenRouterを画像出力だけに限定する現在の設計では `--candidates > 1` を拒否する。
+7. **生成仕様はstoryboard JSONに集約**: ページ・コマ・キャスト識別子・品質チェック・参照画像をstoryboard JSONに持つ。小説や漫画脚本の試行錯誤は前段で済ませ、キャストが変わってもツールは編集しない。
 8. **コマ位置はスロットで明示**: 各panelの `pos`（`top-wide` / `row2-right` 等）をプロンプトに明記。研究側（DiffSensei等）のレイアウト条件付け・キャラ識別アダプタに対する、API利用での実務的等価物が「明示スロット＋キャラ参照画像＋正確テキスト契約」。
-9. **観測可能性**: 全API呼び出しを `output/ledger.jsonl` に記録（時刻・コマンド・ページ・モデル・コスト・判定）。1冊いくらかかったかが常に分かる。
+9. **観測可能性**: 画像出力API呼び出しと、無料のreview/qa依頼生成を `output/ledger.jsonl` に記録（時刻・コマンド・ページ・コスト・判定）。1冊いくらかかったかが常に分かる。
 10. **出力はlatest一本**: `output/latest/` が常に最新の本。置き換え前ページは `output/history/` に退避。run dir連鎖を作らない。
 
 ## 使い方
 
-パイプライン全体: **lint（決定論） → review（編集者LLM） → gen（画像生成） → qa（ビジョンLLM） → fix（フィードバック付き再生成）**。
-左ほど安く、左で潰した問題ほど節約効果が大きい（lint=無料、review≈$0.05、gen≈$0.18/頁）。
+ハーネス内部のパイプライン: **lint（決定論） → review（エージェント用レビュー依頼） → gen（OpenRouter画像生成） → qa（エージェント用画像QA依頼） → fix（フィードバック付き再生成）**。
+左ほど安く、左で潰した問題ほど節約効果が大きい（lint/review=無料、gen≈$0.18/頁）。
+
+小説や長文記事の漫画化では、ハーネスの前に **漫画脚本 → ネーム** を置く。小説を直接 `storyboard.json` に圧縮すると、会話の応酬、反応、沈黙、サブテキストが不足しやすい。
 
 ```bash
 SPEC=examples/demo-product/manga/production/spec/storyboard.json
@@ -29,10 +31,11 @@ SPEC=examples/demo-product/manga/production/spec/storyboard.json
 # 決定論的チェック（無料・即時）。genは内部でも実行し、errorがあると課金前に止まる
 python3 tools/mangagen.py lint --spec $SPEC
 
-# 編集者レビュー（テキストLLM、生成前にネームの構造問題を検出）
-# docs/の編集原則4文書を判断基準に、フック・変化量・ページ配分・ヒキメクリ・論理穴をJSONで指摘
+# 編集者レビュー依頼（無料）。OpenRouterは使わず、coding agentが読むための
+# output/latest/qa/review_request.md と review_payload.json を生成する
 python3 tools/mangagen.py review --spec $SPEC
 
+# coding agentが review_request.md を読んで output/latest/qa/review.json を作る。
 # プロンプトだけ書き出す（無料の検証）
 python3 tools/mangagen.py prompts --spec $SPEC
 
@@ -40,13 +43,12 @@ python3 tools/mangagen.py prompts --spec $SPEC
 python3 tools/mangagen.py gen --spec $SPEC --pages 1,8
 python3 tools/mangagen.py gen --spec $SPEC --all-pages
 
-# 重要ページはbest-of-N（N倍課金、QAスコアで最良を自動採用）
-python3 tools/mangagen.py gen --spec $SPEC --pages 1,15 --candidates 3
-
-# ビジョンQA（生成の約1/150のコスト）。output/latest/qa/ に verdict と summary.json
+# エージェント画像QA依頼（無料）。output/latest/qa/page_XX_request.md を生成
 python3 tools/mangagen.py qa --spec $SPEC
 
-# QA failページをエラー内容フィードバック付きで自動リロール → 残れば人間にエスカレーション
+# coding agentが page_XX_request.md と画像を見て page_XX.json を作る
+
+# QA failページをエラー内容フィードバック付きで再生成（画像生成なのでOpenRouterを使う）
 python3 tools/mangagen.py fix --spec $SPEC --attempts 2
 
 # contact_sheet.png と book.pdf を再構築
@@ -63,13 +65,13 @@ python3 tools/mangagen.py charsheet --spec $SPEC
 **起承転結の配分**（ページに `"beat": "ki"|"sho"|"ten"|"ketsu"` を付けると、起1/4・承1/4・転1/3・結1/8
 からの大幅逸脱をwarn、順序違反をerror、結＞転をwarnで検出）。
 
-`review` が見るもの（`docs/manga_craft_research.md` ほか編集原則4文書を基準に）: 最初の5ページのフック、
+`review` が依頼パックに含めるもの（`docs/manga_craft_research.md` ほか編集原則4文書を基準に）: 最初の5ページのフック、
 1ページ目↔最終ページの変化量、キャラの好感度形成、起承転結配分（起1/4・承1/4・転1/3・結1/8）、
 全ページのヒキ/メクリ、大ゴマの序中盤配置、**ページをまたぐ論理穴**。実走では「P14で大和がフルネームを
 知っている根拠が作中にない」というlintにもビジョンQAにも検出不能な設定穴を発見した。
 検出階層の整理: **lint=構文、review=物語、qa=実画像**。
 
-APIキーは `OPENROUTER_API_KEY` または `OPENROUTER` 環境変数。
+APIキーは画像出力を行う `gen` / `charsheet`、および失敗ページを再生成する `fix` でのみ必要。`OPENROUTER_API_KEY` または `OPENROUTER` 環境変数に設定する。`review` と `qa` はAPIキー不要。
 `max_tokens` の既定は16384（画像トークンが約5,700消費されるため。旧版の1024は画像が返らず課金だけ発生する地雷だった）。
 
 ## format: x-carousel（X広告カルーセル）
@@ -80,19 +82,100 @@ APIキーは `OPENROUTER_API_KEY` または `OPENROUTER` 環境変数。
 - beat語彙は `hook` / `body` / `cta`（起承転結のki/sho/ten/ketsuと排他）
 - lint追加分: カード2〜6枚（範囲外error）/ 1枚目hook・最終枚cta（欠落warn）/ cta中間出現warn /
   カード80字warn・120字error / カード4コマ超warn / `ad_copy` 280 weighted超error / 非正方形canvas warn
-- reviewは `docs/x_ads_manga_principles.md` を判断基準に追加し、hook→body→ctaで評価
+- reviewは `docs/x_ads_manga_principles.md` を判断基準に追加した依頼パックを生成し、coding agentがhook→body→ctaで評価
 - assembleはスワイプ順の横一列 contact_sheet.png と ad_copy.txt を出力（book.pdfは作らない）
 
 判断基準・公式仕様の出典は [X広告カルーセル原則](x_ads_manga_principles.md)。
+
+## format: series-episode（連載漫画）
+
+連載の各話は `format: "series-episode"` の storyboard.json を1話1ファイルで持つ。生成・assemble は読切（`book`）と同じ（2:3 ページ、book.pdf）。
+
+### シリーズルート `series.json`
+
+`manga/production/spec/series.json` に全話一覧・story bible パス・各話の `emotional_delta` を置く。テンプレート: `templates/series.json`。
+
+```jsonc
+{
+  "title": "作品タイトル",
+  "slug": "my-series",
+  "story_bible": "story_bible.md",
+  "adaptation_design": "adaptation_design.md",
+  "episodes": [
+    {
+      "number": 1,
+      "slug": "ep01-first",
+      "title": "第1話タイトル",
+      "spec": "../../ep01-first/production/spec/storyboard.json",
+      "emotional_delta": "開始 → 終了"
+    }
+  ]
+}
+```
+
+各話 storyboard には `"format": "series-episode"`, `"series": "slug"`, `"episode": N`, `"series_root": "../../../production/spec"`（任意・省略時は上方向に `series.json` を自動探索）を付ける。
+
+### lint（話単位 + 一括）
+
+```bash
+SPEC=projects/onibaku/manga/ep02-isourou/production/spec/storyboard.json
+python3 tools/mangagen.py lint --spec $SPEC
+
+# 全話一括（series.json に列挙された spec を順に lint + 話間チェック）
+python3 tools/mangagen.py lint --series-root projects/onibaku/manga/production/spec
+```
+
+`series-episode` 追加分:
+
+- `episode` 必須（error）
+- `series.json` との整合（話番号・spec パス）
+- 最終話以外: 最終ページに次話予告（「続く」または `第N+1話`）（warn）
+- 最終話: 次話予告がある（warn）
+- 第2話以降: 前話比でキャラ2人以上増（warn）、`quality_checks` に継続ヒントなし（warn）
+
+### review（話単位）
+
+```bash
+python3 tools/mangagen.py review --spec $SPEC
+```
+
+読切の「完結満足」ではなく、**話単位の emotional_delta・前話連続性・次話ヒキ**で評価。`docs/series_principles.md` を判断基準に追加。payload に `prev_episode_final`（前話最終ページ）を同梱。
+
+### series-review（シリーズ横断）
+
+主要話の storyboard が揃った段階で:
+
+```bash
+python3 tools/mangagen.py series-review --series-root projects/onibaku/manga/production/spec
+# → manga/production/output/latest/qa/series_review_request.md
+# coding agent が series_review.json を作成
+```
+
+チェックリスト: `templates/series_review_checklist.md`（モチーフ追跡・話間整合・シリーズ arc）。
+
+### 連載のレビューゲート（人手）
+
+| 段階 | 成果物 | チェックリスト |
+|---|---|---|
+| 脚本 | `script_review.md` | `templates/script_review_checklist.md` |
+| ネーム | `name_review.md` | `templates/name_review_checklist.md` |
+| storyboard | `review.json` | mangagen review（連載観点） |
+| 全話 | `series_review.json` | series-review |
+
+実例: `projects/onibaku/`
 
 ## スペックJSONの拡張フィールド
 
 ```jsonc
 {
   "title": "...",
+  "format": "book | x-carousel | series-episode",
+  "series": "slug",              // series-episode のみ
+  "episode": 2,                    // series-episode のみ
+  "series_root": "../../../production/spec",
   "global_art_prompt": "...",
   "characters": { "name": "識別子を含む英語記述。LINEアイコン等もここ" },
-  "quality_checks": ["プロンプトのQUALITY CHECKとビジョンQAの両方に注入される行"],
+  "quality_checks": ["プロンプトのQUALITY CHECKとエージェント画像QAの両方に注入される行"],
   "reference_images": ["character_sheet.png"],   // 任意。全gen callに添付
   "craft_guide": "pro_panel_craft.md",           // 任意。spec同階層から読む
   "pages": [{
@@ -112,13 +195,24 @@ APIキーは `OPENROUTER_API_KEY` または `OPENROUTER` 環境変数。
 
 ## 制作ワークフロー（推奨）
 
-1. ネーム文書（name_vX.md）で構成を固める。読み順事故を防ぐため、質問→応答が2コマ横並びになるビートは、質問側を `top-wide` にするか同一コマに収める
-2. `prompts` でドライラン → プロンプト目視
-3. `gen --pages` でフックページと見せ場ページ（例: 1とクライマックス）だけ試し、画風と文字精度を確認
-4. 残りページを `gen`
-5. `qa` → summary.json確認 → failがあれば `fix`
-6. 自分の目でもcontact sheetと全ページを見る（QAは較正済みだが万能ではない。意味の通る誤読み順はwarnに落ちる）
-7. `assemble` で book.pdf
+1. 原作が小説・記事の場合は、まず漫画脚本（script.md）を作る。会話、反応、沈黙、サブテキスト、ページごとの読者感情を固める
+2. ネーム文書（name_vX.md）で構成を固める。読み順事故を防ぐため、質問→応答が2コマ横並びになるビートは、質問側を `top-wide` にするか同一コマに収める
+3. ネームで決めた内容を `storyboard.json` に落とす
+4. `lint` / `review` / `prompts` で生成前検証を行う
+5. `gen --pages` でフックページと見せ場ページ（例: 1とクライマックス）だけ試し、画風と文字精度を確認
+6. 残りページを `gen`
+7. `qa` → coding agentが `page_XX_request.md` と画像を見て `page_XX.json` を作る → failがあれば `fix`
+8. 自分の目でもcontact sheetと全ページを見る（QAは較正済みだが万能ではない。意味の通る誤読み順はwarnに落ちる）
+9. `assemble` で book.pdf
+
+漫画脚本レビューで見るもの:
+
+- セリフが少なすぎないか
+- 重要な決断が会話の応酬として成立しているか
+- 各セリフに相手の反応があるか
+- 内面が視線、手元、距離、姿勢、道具へ翻訳されているか
+- モノローグが説明ではなく自己欺瞞を担っているか
+- セリフ・モノローグ・地の文の**容器形状**がページを通して統一されているか（`docs/bubble_render_research.md`）
 
 ## 知見の蓄積ルール
 
@@ -148,9 +242,8 @@ APIキーは `OPENROUTER_API_KEY` または `OPENROUTER` 環境変数。
 
 - **読み順逆転**: 2コマ横並びで右左が入れ替わる。スロット明示＋「質問コマをワイドにする」構成側の回避が効く
 - **max_tokens不足**: 画像が返らないのに課金される
-- **QAモデルの過剰判定**: スロット一致と読み順を混同する。判定手順を「grid転記→reader順を歩く」の2段に分けると安定する
-- **QA出力のトークン切れ**: gridを冗長に書くと途中で切れてunparseable。簡潔指示＋max_tokens 4000で解消
+- **QAの過剰判定**: スロット一致と読み順を混同する。判定手順を「grid転記→reader順を歩く」の2段に分けると安定する
 - **キャラシートの欠陥伝播**: 参照画像に識別子の欠け（眼鏡なし等）があると全ページに伝播する。specに繋ぐ前に必ず目視
-- **reviewのverdictは非決定的**: 同じネームでrevise/shipが振れる。二値判定を信用せず、**top_fixesの中身**を読んで人間が採否を決める。指摘自体は安定して有用（フルネームの裏付け問題は両視点とも別run間で再現検出された）
+- **reviewのverdictは判断材料**: coding agentのレビューでも二値判定だけを信用せず、**top_fixesの中身**を読んで人間が採否を決める。指摘は生成前に構造問題を潰すためのもの
 - **画面がデバイスの裏側に描かれる**: モデルが「キャラの顔」と「画面の文字」を両方正面から見せようとして、ノートPC天板やスマホ背面に画面内容を描く。対策: 読ませる画面のコマは**肩越し・覗き込み構図**か**画面単体インサート**を構図指示で強制。craft guide「画面の物理」節＋プロンプトのSCREEN PHYSICS節＋QAチェック7として三層で恒久化済み
 - **ブランド名の露出不足**: 物語に集中するとサービス名をスペックから落とす。広告漫画では機能欠陥。lintの`brand_strings`チェック（0回=error、1回/最終ページのみ=warn）で恒久化済み

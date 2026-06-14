@@ -1,0 +1,132 @@
+:root {
+  color: #f5f1e8;
+  background: #11100f;
+  font-family:
+    "Hiragino Mincho ProN",
+    "Yu Mincho",
+    "YuMincho",
+    serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(190, 180, 150, 0.18), transparent 34rem),
+    linear-gradient(135deg, #181715, #090909 68%);
+}
+
+.app-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 28px 0 18px;
+}
+
+.app-header__lead {
+  min-width: 0;
+}
+
+.app-header__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.episode-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f5f1e8;
+  font-family:
+    "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
+    sans-serif;
+  font-size: 0.85rem;
+}
+
+.episode-picker__label {
+  color: #b9aa86;
+  letter-spacing: 0.08em;
+}
+
+.episode-picker select {
+  min-width: 11rem;
+  border: 1px solid rgba(245, 241, 232, 0.34);
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: rgba(5, 5, 5, 0.72);
+  color: #f5f1e8;
+  font: inherit;
+  cursor: pointer;
+}
+
+.episode-picker select:hover,
+.episode-picker select:focus {
+  border-color: #d7c28f;
+  outline: none;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: #b9aa86;
+  font-family:
+    "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
+    sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.pdf-link {
+  flex: 0 0 auto;
+  border: 1px solid rgba(245, 241, 232, 0.34);
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: #f5f1e8;
+  font-family:
+    "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
+    sans-serif;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.pdf-link:hover {
+  border-color: #d7c28f;
+  color: #d7c28f;
+}
+
+main {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+
+#viewer {
+  min-height: calc(100vh - 132px);
+  overflow: hidden;
+  border: 1px solid rgba(245, 241, 232, 0.18);
+  border-radius: 18px;
+  background: #050505;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+}

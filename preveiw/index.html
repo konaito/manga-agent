@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>鬼畜 — preview</title>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-header__lead">
+        <p class="eyebrow">manga-agent preview</p>
+        <h1 id="episode-title">鬼畜</h1>
+      </div>
+      <div class="app-header__controls">
+        <label class="episode-picker" for="episode-select">
+          <span class="episode-picker__label">話数</span>
+          <select id="episode-select" aria-label="表示する話数"></select>
+        </label>
+        <a
+          id="pdf-link"
+          class="pdf-link"
+          href="/onibaku/ep01/book.pdf"
+          target="_blank"
+          rel="noreferrer"
+        >
+          PDFを開く
+        </a>
+      </div>
+    </header>
+    <main>
+      <div id="viewer" aria-label="漫画ビューア"></div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

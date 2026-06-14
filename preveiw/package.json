@@ -1,0 +1,20 @@
+{
+  "name": "manga-agent-preveiw",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync:onibaku": "node scripts/sync-onibaku-ep01.mjs",
+    "sync:onibaku:ep02": "node scripts/sync-onibaku-ep02.mjs",
+    "sync:onibaku:all": "node scripts/sync-onibaku-all.mjs",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@yui540/comimi": "latest"
+  },
+  "devDependencies": {
+    "vite": "latest",
+    "typescript": "latest"
+  }
+}

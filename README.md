@@ -14,21 +14,26 @@ python3 tools/build_prompt.py --mode name-review path/to/draft.md
 
 生成されたプロンプトを任意のLLMに貼り付けて使います。
 
-### 2. ページ画像の生成（OpenRouter APIキー必要）
+### 2. ページ画像の生成（OpenRouter APIキーは画像出力だけ必要）
 
 ```bash
-export OPENROUTER_API_KEY=your_key_here
-
 SPEC=examples/demo-product/manga/production/spec/storyboard.json
 
 # 事前チェック（無料）
 python3 tools/mangagen.py lint --spec $SPEC
 
+# 編集レビュー依頼の生成（無料）
+python3 tools/mangagen.py review --spec $SPEC
+
 # プロンプト確認（無料）
 python3 tools/mangagen.py prompts --spec $SPEC
 
 # ページ生成（課金）
+export OPENROUTER_API_KEY=your_key_here
 python3 tools/mangagen.py gen --spec $SPEC --pages 1,2
+
+# 画像QA依頼の生成（無料）
+python3 tools/mangagen.py qa --spec $SPEC
 ```
 
 ## リポジトリ構成
@@ -36,7 +41,7 @@ python3 tools/mangagen.py gen --spec $SPEC --pages 1,2
 | パス | 役割 |
 |---|---|
 | `agents/manga_editor_agent.md` | 漫画編集者エージェントのシステムプロンプト |
-| `tools/mangagen.py` | スペック駆動の制作ハーネス（lint / gen / qa / fix） |
+| `tools/mangagen.py` | スペック駆動の制作ハーネス（lint / review / gen / qa / fix） |
 | `tools/build_prompt.py` | レビュー依頼プロンプトを組み立てるCLI |
 | `docs/` | 漫画クラフト原則・ハーネス設計・制作知見 |
 | `docs/knowledge/INDEX.md` | タスク着手前に読む知見の目次 |
@@ -51,6 +56,14 @@ AIエージェントがこのリポジトリを理解するための詳細ガイ
 ## 知見
 
 タスク着手前に `docs/knowledge/INDEX.md` を見る。クラフト知見・ハーネス知見・制作ポストモーテムの目次。
+
+## 開発
+
+依存関係とテスト実行は `uv` を使います。
+
+```bash
+uv run pytest
+```
 
 ## エージェントの基本方針
 

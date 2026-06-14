@@ -9,6 +9,7 @@
 - [ジャンプ漫画学校原則](../jump_manga_school_principles.md) — 冒頭の大きい絵 / フキダシ導線 / TPO
 - [レビューチェックリスト](../review_checklist.md) — 企画 / ネーム / キャラ / 読み切り / AI生成の観点
 - [X広告カルーセル原則](../x_ads_manga_principles.md) — 検証済み公式仕様（1:1 / 2〜6枚 / 280 weighted）/ hook→body→cta / 広告色抑制と事例 / モバイル可読性。**format: x-carousel のreview判断基準**
+- [連載漫画原則](../series_principles.md) — 話単位変化量・ヒキ・モチーフ・story bible。**format: series-episode / series-review の判断基準**
 
 ## ハーネス（作る仕組み）
 
@@ -19,5 +20,5 @@
 
 ## 運用メモ
 
-- APIキー: `OPENROUTER_API_KEY` または `OPENROUTER` 環境変数
-- 実測コスト: 生成 ≈ $0.18/頁、ビジョンQA ≈ $0.0012/頁、編集レビュー ≈ $0.05/冊
+- APIキー: `OPENROUTER_API_KEY` または `OPENROUTER` 環境変数（画像出力を行う `gen` / `charsheet` / `fix` のみ）
+- 実測コスト: 生成 ≈ $0.18/頁、`review` と `qa` はエージェント用依頼生成なので無料

@@ -1,0 +1,965 @@
+{
+  "title": "鬼畜 第1話 夜の呼び水",
+  "format": "series-episode",
+  "series": "onibaku",
+  "episode": 1,
+  "series_root": "../../../production/spec",
+  "page_width": 1600,
+  "page_height": 2400,
+  "reading_direction": "rtl",
+  "global_art_prompt": "black and white Japanese seinen manga, urban psychological drama, quiet Tokyo night atmosphere, crisp ink lines, screentone shading, expressive faces and hands, clean panel borders, right-to-left manga reading flow, render all specified Japanese dialogue exactly as written, readable Japanese manga typesetting, consistent character designs, literary mood not action shonen, both lead characters are Japanese men, dialogue-driven chamber drama with subtle gestures and realistic male body language",
+  "characters": {
+    "hiro": "Hiro, Japanese man age 30, short black hair, tired eyes with slight dark circles, no glasses, office shirt and worn cardigan or light jacket, slim build. Tokyo native, guarded but impulsive. Speaks in short, slightly blunt lines. Non-dialogue narration uses caption boxes only, not cloud thought balloons.",
+    "makeoto": "Makeoto, Japanese man age 22-23, thin frame, medium-length unkempt black hair, worn cheap jacket and pants, single sports bag as only luggage, no glasses. Always apologetic posture, downward gaze, deep bows. Countryside newcomer smell - shoes and bag carry style do not fit Tokyo."
+  },
+  "quality_checks": [
+    "Hiro is a Japanese man, not a woman",
+    "Hiro never wears glasses",
+    "Makeoto never wears glasses",
+    "Both lead characters are men; no feminine blouse, skirt, makeup, or female body silhouette",
+    "No real company logos or app logos as graphic marks",
+    "Standing bar scene is crowded and cramped",
+    "Makeoto always looks apologetic in early scenes",
+    "The sports bag position must be trackable across pages 1, 6, 9, 15, and 16",
+    "Do not show smartphone screen content on page 12; only sound effect and door gap",
+    "P10: Makeoto gratitude must look sincere and real; Hiro must look relieved, not kind or romantic.",
+    "P12: Do not draw any smartphone screen, phone UI, notification text, or blue readable display; only sound and darkness.",
+    "P16: Final caption, title, and next-episode label must be in clean separate caption/title areas; sports bag must be slightly inside the living room."
+  ],
+  "forbidden_strings": [
+    "確認",
+    "ランキング"
+  ],
+  "craft_guide": "pro_panel_craft.md",
+  "pages": [
+    {
+      "page": 1,
+      "title": "謝罪が終わらない",
+      "layout": "hook4",
+      "beat": "ki",
+      "panels": [
+        {
+          "id": "p01_01",
+          "pos": "top-wide",
+          "art": "Large hook panel. Crowded standing bar near Shibuya station after last train. Hiro, a tired Japanese man in office shirt and cardigan, stands with a half-empty beer. Makeoto is partly visible beside him with a worn sports bag at his feet.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "二年前の十月。三十歳。"
+            }
+          ]
+        },
+        {
+          "id": "p01_02",
+          "pos": "row2-right",
+          "art": "Close shot of Makeoto's elbow bumping Hiro's arm. Hiro looks first at the rippling beer foam, not at Makeoto's face.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "すいません"
+            }
+          ]
+        },
+        {
+          "id": "p01_03",
+          "pos": "row2-left",
+          "art": "Hiro turns slightly. Makeoto keeps his gaze down, thin shoulders tucked inward, apologetic but still standing too close in the cramped bar.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "いや"
+            }
+          ]
+        },
+        {
+          "id": "p01_04",
+          "pos": "bottom-wide",
+          "art": "Makeoto bows again in the crowd. Hiro watches with tired neutrality; the sports bag at Makeoto's feet interrupts the floor space.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "ほんと、すいません"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 2,
+      "title": "ネカフェ",
+      "layout": "five",
+      "beat": "ki",
+      "panels": [
+        {
+          "id": "p02_01",
+          "pos": "top-wide",
+          "art": "Makeoto hesitates before speaking. He is still not looking directly at Hiro. Crowded bar background, noisy but emotionally narrow.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "あの"
+            }
+          ]
+        },
+        {
+          "id": "p02_02",
+          "pos": "row2-right",
+          "art": "Makeoto asks while gripping the strap of his sports bag with both hands.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "ここ近くにネカフェありますか"
+            }
+          ]
+        },
+        {
+          "id": "p02_03",
+          "pos": "row2-left",
+          "art": "Hiro starts to take out his phone, then stops halfway. His expression stays blank.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "駅のほうにあると思うけど"
+            }
+          ]
+        },
+        {
+          "id": "p02_04",
+          "pos": "row3-right",
+          "art": "Makeoto gives a small nod but does not move. He looks embarrassed to continue.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "今夜、泊まるところなくて"
+            }
+          ]
+        },
+        {
+          "id": "p02_05",
+          "pos": "row3-left",
+          "art": "Insert-like panel: Hiro's eyes drop to the worn sports bag at Makeoto's feet. The bag suddenly becomes important.",
+          "dialogue": []
+        }
+      ]
+    },
+    {
+      "page": 3,
+      "title": "口が先に動く",
+      "layout": "hook4",
+      "beat": "ki",
+      "panels": [
+        {
+          "id": "p03_01",
+          "pos": "top-wide",
+          "art": "Hiro looks at Makeoto, then at the sports bag. Around them, the bar noise continues, but the two men feel isolated.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "……上京？"
+            }
+          ]
+        },
+        {
+          "id": "p03_02",
+          "pos": "row2-right",
+          "art": "Makeoto nods slightly without lifting his eyes. His cheap jacket is worn at the cuffs.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "今日、来たばっかで"
+            }
+          ]
+        },
+        {
+          "id": "p03_03",
+          "pos": "row2-left",
+          "art": "Hiro sets his beer glass down. His hand stays on the glass a second too long.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "何も考えていなかった"
+            }
+          ]
+        },
+        {
+          "id": "p03_04",
+          "pos": "bottom-wide",
+          "art": "Large quiet panel. Hiro says the line before he can inspect it. Makeoto's face lifts for the first time, surprised but still guarded.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "うち、来る？"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 4,
+      "title": "撤回できない",
+      "layout": "five",
+      "beat": "sho",
+      "panels": [
+        {
+          "id": "p04_01",
+          "pos": "top-wide",
+          "art": "Makeoto recoils half a step, bowing too low. Hiro has already turned toward the counter.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "いや、そんな、すいません"
+            }
+          ]
+        },
+        {
+          "id": "p04_02",
+          "pos": "row2-right",
+          "art": "Hiro pays at the counter, avoiding eye contact. His words are casual and too practical.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "すぐそこ。徒歩五分"
+            }
+          ]
+        },
+        {
+          "id": "p04_03",
+          "pos": "row2-left",
+          "art": "Makeoto clutches the bag strap, still refusing from behind Hiro.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "本当に、大丈夫です"
+            }
+          ]
+        },
+        {
+          "id": "p04_04",
+          "pos": "row3-right",
+          "art": "Hiro gives a small embarrassed half-smile, not kindness exactly. The free room is turned into a cheap joke.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "ネカフェより、安いし"
+            }
+          ]
+        },
+        {
+          "id": "p04_05",
+          "pos": "row3-left",
+          "art": "Hiro leaves the bar first. Makeoto lags behind, then follows. The decision has already moved without them.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "行こ"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 5,
+      "title": "夜道",
+      "layout": "four",
+      "beat": "sho",
+      "panels": [
+        {
+          "id": "p05_01",
+          "pos": "row1-right",
+          "art": "Wide night street in Shibuya after last train. Hiro walks ahead, Makeoto follows half a step behind with the sports bag.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "深夜一時"
+            }
+          ]
+        },
+        {
+          "id": "p05_02",
+          "pos": "row1-left",
+          "art": "Low angle of their feet. Hiro's office shoes and Makeoto's worn shoes are separated by a small but persistent distance.",
+          "dialogue": []
+        },
+        {
+          "id": "p05_03",
+          "pos": "row2-right",
+          "art": "Makeoto opens his mouth as if to apologize again, but Hiro does not turn around.",
+          "dialogue": []
+        },
+        {
+          "id": "p05_04",
+          "pos": "bottom-wide",
+          "art": "Exterior of Hiro's apartment building at night. The two men stand before the entrance, not side by side.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "二年続くとは思っていなかった"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 6,
+      "title": "玄関の境界",
+      "layout": "five",
+      "beat": "sho",
+      "panels": [
+        {
+          "id": "p06_01",
+          "pos": "top-wide",
+          "art": "Hiro unlocks the apartment door without turning back. The room beyond is only partly lit.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "適当に入って。狭いから"
+            }
+          ]
+        },
+        {
+          "id": "p06_02",
+          "pos": "row2-right",
+          "art": "Makeoto stops at the genkan and bows before crossing the threshold.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "お邪魔します"
+            }
+          ]
+        },
+        {
+          "id": "p06_03",
+          "pos": "row2-left",
+          "art": "Close shot of Makeoto carefully taking off and aligning his worn shoes too neatly.",
+          "dialogue": []
+        },
+        {
+          "id": "p06_04",
+          "pos": "row3-right",
+          "art": "Hiro drinks water in the kitchen and gestures vaguely toward the genkan corner.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "そのへん置いといて"
+            }
+          ]
+        },
+        {
+          "id": "p06_05",
+          "pos": "row3-left",
+          "art": "Makeoto places the sports bag in the genkan corner and asks permission with his posture more than his face.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "ここでいいですか"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 7,
+      "title": "客かどうか",
+      "layout": "four",
+      "beat": "sho",
+      "panels": [
+        {
+          "id": "p07_01",
+          "pos": "row1-right",
+          "art": "Hiro gestures toward the sofa from a distance. Makeoto remains standing at the living room entrance.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "座って"
+            }
+          ]
+        },
+        {
+          "id": "p07_02",
+          "pos": "row1-left",
+          "art": "Makeoto sits on the very edge of the sofa, knees together, hands unsure where to rest.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "すいません"
+            }
+          ]
+        },
+        {
+          "id": "p07_03",
+          "pos": "row2-right",
+          "art": "Hiro reaches toward the TV remote, pauses, and sets it back down without turning the TV on. Show the action clearly; the caption states the result at a panel edge, not as inner thought.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "テレビをつけなかった"
+            }
+          ]
+        },
+        {
+          "id": "p07_04",
+          "pos": "bottom-wide",
+          "art": "Two sofas facing each other across a small table. The sports bag is visible in the genkan behind Makeoto.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "客なのか、決めかねていた"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 8,
+      "title": "明日の予定",
+      "layout": "five",
+      "beat": "ten",
+      "panels": [
+        {
+          "id": "p08_01",
+          "pos": "top-wide",
+          "art": "Hiro looks from Makeoto's hands to the bag in the genkan before speaking. Makeoto sits rigidly.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "明日、どうするの"
+            }
+          ]
+        },
+        {
+          "id": "p08_02",
+          "pos": "row2-right",
+          "art": "Makeoto straightens, eager to show he has a plan.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "面接あるんで"
+            }
+          ]
+        },
+        {
+          "id": "p08_03",
+          "pos": "row2-left",
+          "art": "Hiro asks with almost no expression, as if measuring distance instead of showing concern.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "どこ"
+            }
+          ]
+        },
+        {
+          "id": "p08_04",
+          "pos": "row3-right",
+          "art": "Makeoto answers, still not quite meeting Hiro's eyes.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "新宿です"
+            }
+          ]
+        },
+        {
+          "id": "p08_05",
+          "pos": "row3-left",
+          "art": "Hiro turns his gaze toward the dark window rather than Makeoto.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "終わったら？"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 9,
+      "title": "バッグを理由にする",
+      "layout": "five",
+      "beat": "ten",
+      "panels": [
+        {
+          "id": "p09_01",
+          "pos": "top-wide",
+          "art": "Makeoto answers after a beat. The room is quiet enough that his hesitation feels loud.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "ネカフェ、探します"
+            }
+          ]
+        },
+        {
+          "id": "p09_02",
+          "pos": "row2-right",
+          "art": "Hiro's eyes go to the sports bag in the genkan, not to Makeoto.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "荷物、どうすんの"
+            }
+          ]
+        },
+        {
+          "id": "p09_03",
+          "pos": "row2-left",
+          "art": "Makeoto reaches for the bag strap as if to prove he can carry it, though the bag is clearly heavy.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "持って、行きます"
+            }
+          ]
+        },
+        {
+          "id": "p09_04",
+          "pos": "row3-right",
+          "art": "Close on Hiro's hand setting the water glass down. The sound is small but final.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "放っておく選択肢が遠のいた"
+            }
+          ]
+        },
+        {
+          "id": "p09_05",
+          "pos": "row3-left",
+          "art": "Hiro looks away toward the window before speaking, avoiding the feeling that this is kindness.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "別に、急がなくていいよ"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 10,
+      "title": "感謝",
+      "layout": "five",
+      "beat": "ten",
+      "panels": [
+        {
+          "id": "p10_01",
+          "pos": "top-wide",
+          "art": "Makeoto lifts his face slightly, unable to understand whether he was really allowed to stay.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "え"
+            }
+          ]
+        },
+        {
+          "id": "p10_02",
+          "pos": "row2-right",
+          "art": "Hiro keeps his eyes off Makeoto, still looking near the window or table rather than directly at him.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "いていいよ、しばらく"
+            }
+          ]
+        },
+        {
+          "id": "p10_03",
+          "pos": "row2-left",
+          "art": "Makeoto bows deeply from the sofa edge. His gratitude is sincere and emotionally real, the first time his whole face and posture feel unguarded rather than merely apologetic.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "……ありがとうございます"
+            }
+          ]
+        },
+        {
+          "id": "p10_04",
+          "pos": "row3-right",
+          "art": "Close on Hiro's face: small dangerous relief, not kindness, not romance. He is reassured because Makeoto's gratitude makes his impulsive words feel correct.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "彼の感謝が、私の言葉を正しくした"
+            }
+          ]
+        },
+        {
+          "id": "p10_05",
+          "pos": "row3-left",
+          "art": "Silent wide panel of the two men separated by the table, with the bag visible in the background.",
+          "dialogue": []
+        }
+      ]
+    },
+    {
+      "page": 11,
+      "title": "毛布と歯ブラシ",
+      "layout": "five",
+      "beat": "ten",
+      "panels": [
+        {
+          "id": "p11_01",
+          "pos": "top-wide",
+          "art": "Hiro pulls a folded blanket from storage. Makeoto stands quickly but keeps his head low.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "ソファで寝ていいよ"
+            }
+          ]
+        },
+        {
+          "id": "p11_02",
+          "pos": "row2-right",
+          "art": "Makeoto receives the blanket with both hands as if receiving something formal.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "すいません"
+            }
+          ]
+        },
+        {
+          "id": "p11_03",
+          "pos": "row2-left",
+          "art": "Hiro holds out the blanket, not meeting Makeoto's eyes.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "毛布、これ"
+            }
+          ]
+        },
+        {
+          "id": "p11_04",
+          "pos": "row3-right",
+          "art": "Hiro offers a new toothbrush still in its convenience-store bag. Makeoto's hands stop for a second.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "あと、これ"
+            }
+          ]
+        },
+        {
+          "id": "p11_05",
+          "pos": "row3-left",
+          "art": "Makeoto bows with the toothbrush and blanket in his hands. The thank-you is quieter than before.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "……ありがとうございます"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 12,
+      "title": "見ない選択",
+      "layout": "four",
+      "beat": "ten",
+      "panels": [
+        {
+          "id": "p12_01",
+          "pos": "row1-right",
+          "art": "Hiro half closes the bedroom door. Only part of his face is visible in the gap.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "電気、好きに消して"
+            }
+          ]
+        },
+        {
+          "id": "p12_02",
+          "pos": "row1-left",
+          "art": "Makeoto begins to apologize again from the living room, but Hiro cuts it off without anger.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "謝んなくていい"
+            }
+          ]
+        },
+        {
+          "id": "p12_03",
+          "pos": "row2-right",
+          "art": "Dark bedroom. Hiro lies awake. From beyond the closed door comes fabric rustle and the small metallic sound of the bag. Do not show any phone or screen.",
+          "dialogue": [
+            {
+              "kind": "sfx",
+              "text": "カサ"
+            }
+          ]
+        },
+        {
+          "id": "p12_04",
+          "pos": "bottom-wide",
+          "art": "Hiro stares at the ceiling in darkness. A short phone notification sound comes from the living room, but no phone, screen, UI, or readable notification is visible. He does not open the door.",
+          "dialogue": [
+            {
+              "kind": "sfx",
+              "text": "ピロン"
+            },
+            {
+              "kind": "caption",
+              "text": "見ないことを、選んだ"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 13,
+      "title": "翌朝",
+      "layout": "five",
+      "beat": "ketsu",
+      "panels": [
+        {
+          "id": "p13_01",
+          "pos": "top-wide",
+          "art": "Morning light. Hiro exits the bedroom sleepy. Makeoto sits upright on the sofa; the blanket is folded too neatly.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "翌朝"
+            }
+          ]
+        },
+        {
+          "id": "p13_02",
+          "pos": "row2-right",
+          "art": "Makeoto bows from the sofa edge before Hiro has fully woken up.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "今日中に、出ていきます"
+            }
+          ]
+        },
+        {
+          "id": "p13_03",
+          "pos": "row2-left",
+          "art": "Hiro answers too lightly, still half asleep, refusing to make the statement important.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "ああ"
+            }
+          ]
+        },
+        {
+          "id": "p13_04",
+          "pos": "middle-wide",
+          "art": "Wide middle panel. Hiro pours milk into two glasses at the kitchen counter, noticing the second glass after he has already poured it. This question is read before Makeoto answers below.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "面接、何時？"
+            }
+          ]
+        },
+        {
+          "id": "p13_05",
+          "pos": "bottom-wide",
+          "art": "Bottom panel. Makeoto sits straighter with both hands around the glass he has not yet drunk from, answering Hiro after the question panel above.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "十一時です。新宿で"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 14,
+      "title": "戻る理由",
+      "layout": "five",
+      "beat": "ketsu",
+      "panels": [
+        {
+          "id": "p14_01",
+          "pos": "top-wide",
+          "art": "Hiro slides a glass of milk toward Makeoto across the low table. Morning light makes the room look ordinary.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "飲んで"
+            }
+          ]
+        },
+        {
+          "id": "p14_02",
+          "pos": "row2-right",
+          "art": "Makeoto begins another apology with the glass held in both hands.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "すいません"
+            }
+          ]
+        },
+        {
+          "id": "p14_03",
+          "pos": "row2-left",
+          "art": "Hiro gives a small tired smile, almost irritated by the repetition.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "別に、謝らなくていいけど"
+            }
+          ]
+        },
+        {
+          "id": "p14_04",
+          "pos": "row3-right",
+          "art": "Hiro glances at the sports bag in the genkan, then says the line as if it were practical, not intimate.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "荷物、置いていけば"
+            }
+          ]
+        },
+        {
+          "id": "p14_05",
+          "pos": "row3-left",
+          "art": "Makeoto lifts his face. Hiro looks away and turns the offer into a schedule.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "面接行って、夜戻ってきて"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 15,
+      "title": "行ってきます",
+      "layout": "four",
+      "beat": "ketsu",
+      "panels": [
+        {
+          "id": "p15_01",
+          "pos": "row1-right",
+          "art": "Makeoto bows deeply at the genkan with his bag left behind in the corner.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "……すいません"
+            }
+          ]
+        },
+        {
+          "id": "p15_02",
+          "pos": "row1-left",
+          "art": "Hiro stands in the hallway, unsure what kind of household word fits this situation.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "行ってらっしゃい、でいいのか"
+            }
+          ]
+        },
+        {
+          "id": "p15_03",
+          "pos": "row2-right",
+          "art": "Makeoto says it very quietly before leaving. The word changes the room more than either man admits.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "行ってきます"
+            }
+          ]
+        },
+        {
+          "id": "p15_04",
+          "pos": "bottom-wide",
+          "art": "After the door closes, the sports bag remains alone in the genkan corner. Hiro watches it without reacting. Factual narration caption at panel edge; not a thought bubble.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "知らない若者の荷物がある"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "page": 16,
+      "title": "ただいま",
+      "layout": "five",
+      "beat": "ketsu",
+      "panels": [
+        {
+          "id": "p16_01",
+          "pos": "top-wide",
+          "art": "Night. The apartment door opens. Makeoto stands in the genkan, bowing slightly with the city darkness behind him.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "ただいま戻りました"
+            }
+          ]
+        },
+        {
+          "id": "p16_02",
+          "pos": "row2-right",
+          "art": "Hiro is in the kitchen, hand stopped over a glass or pot. He does not say welcome back.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "早かったね"
+            }
+          ]
+        },
+        {
+          "id": "p16_03",
+          "pos": "row2-left",
+          "art": "Makeoto removes his shoes carefully and apologizes toward Hiro without fully entering yet.",
+          "dialogue": [
+            {
+              "speaker": "まけおと",
+              "text": "すいません、まだいさせてもらって"
+            }
+          ]
+        },
+        {
+          "id": "p16_04",
+          "pos": "row3-right",
+          "art": "Hiro answers shortly, not turning the moment into a decision.",
+          "dialogue": [
+            {
+              "speaker": "ヒロ",
+              "text": "いいよ"
+            }
+          ]
+        },
+        {
+          "id": "p16_05",
+          "pos": "bottom-wide",
+          "art": "Final large panel. Two men sit apart in the same room at night. Makeoto's sports bag has crossed the genkan boundary and sits slightly inside the living room. Reserve clean separate blank areas for the final narration caption (slanted rectangle at panel edge), the large title, and the next-episode label so none overlap.",
+          "dialogue": [
+            {
+              "kind": "caption",
+              "text": "この夜から、私の日常は侵食されていった"
+            },
+            {
+              "kind": "text",
+              "text": "鬼畜"
+            },
+            {
+              "kind": "text",
+              "text": "第2話 居候 — 続く"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

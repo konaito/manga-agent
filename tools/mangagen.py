@@ -12,19 +12,27 @@ hard attempt caps that escalate to a human, and every API call is journaled
 to a cost ledger.
 
 Subcommands:
-  lint      - deterministic spec checks, free, run before paid generation
-  prompts   - write page prompts only (free dry run)
-  gen       - generate selected pages (paid image API); --candidates N for
-              QA-scored best-of-N selection per page
-  qa        - vision-QA existing pages against the spec (cheap vision API)
-  fix       - regenerate pages that fail QA, feeding the QA errors back into
-              the prompt, up to N attempts, then escalate
-  assemble  - rebuild contact sheet and book.pdf from current pages
-  charsheet - generate a character reference sheet image from the cast list
+  lint          - deterministic spec checks, free, run before paid generation
+                  (--series-root lints all episodes in series.json)
+  review        - editorial review request for one episode spec (free)
+  series-review - cross-episode review request from series.json (free)
+  prompts       - write page prompts only (free dry run)
+  gen           - generate selected pages (paid image API); --candidates N for
+                  QA-scored best-of-N selection per page
+  qa            - vision-QA existing pages against the spec (cheap vision API)
+  fix           - regenerate pages that fail QA, feeding the QA errors back into
+                  the prompt, up to N attempts, then escalate
+  assemble      - rebuild contact sheet and book.pdf from current pages
+  charsheet     - generate a character reference sheet image from the cast list
 
 Spec additions over the legacy storyboard format (all optional):
   "format": "x-carousel",               X ad carousel mode: 1:1 cards, 2-6
                                         slides, hook/body/cta beats, ad lint
+  "format": "series-episode",           serialized manga episode (book layout
+                                        + series lint/review; see series.json)
+  "series": "slug",                     series identifier (matches series.json)
+  "episode": 2,                         episode number within the series
+  "series_root": "../../../production/spec",  path from spec dir to series.json
   "ad_copy": "...",                     post body text (280 weighted chars)
   "quality_checks": ["..."],            page-prompt + QA checklist lines
   "reference_images": ["relative.png"], image refs sent with every gen call
@@ -50,14 +58,17 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, JpegImagePlugin  # noqa: F401
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_GEN_MODEL = "openai/gpt-5.4-image-2"
-DEFAULT_QA_MODEL = "google/gemini-2.5-flash"
 DEFAULT_MAX_TOKENS = 16384
 
-VALID_FORMATS = ("book", "x-carousel")
+VALID_FORMATS = ("book", "x-carousel", "series-episode")
+SERIES_JSON_NAME = "series.json"
+SERIES_ROOT_SEARCH_DEPTH = 5
+NEXT_EPISODE_RE = re.compile(r"続く|第\s*(\d+)\s*話")
+CONTINUITY_HINTS = ("track", "consistent", "continuity", "追跡", "同一", "前話", "trackable")
 
 LAYOUTS = {
     "hook4": "4 panels: a large full-width top hook panel, a middle row of two panels (right read first, then left), and a large full-width bottom panel.",
@@ -101,6 +112,166 @@ def api_key() -> str:
     return key
 
 
+class SeriesContext:
+    """Loads series.json and resolves episode specs relative to the series root."""
+
+    def __init__(self, series_json_path: Path):
+        self.path = series_json_path.resolve()
+        self.root = self.path.parent
+        self.data = json.loads(self.path.read_text(encoding="utf-8"))
+
+    @classmethod
+    def from_root(cls, series_root: Path) -> SeriesContext:
+        root = series_root.resolve()
+        candidate = root / SERIES_JSON_NAME if root.is_dir() else root
+        if candidate.is_dir():
+            candidate = candidate / SERIES_JSON_NAME
+        if not candidate.exists():
+            sys.exit(f"series.json not found at {candidate}")
+        return cls(candidate)
+
+    @classmethod
+    def for_project(cls, project: Project) -> SeriesContext | None:
+        path = resolve_series_json_path(project)
+        if path is None:
+            return None
+        return cls(path)
+
+    @property
+    def title(self) -> str:
+        return self.data.get("title", "")
+
+    @property
+    def slug(self) -> str:
+        return self.data.get("slug", "")
+
+    def episodes(self) -> list[dict]:
+        return sorted(self.data.get("episodes", []), key=lambda e: int(e["number"]))
+
+    def episode_numbers(self) -> list[int]:
+        return [int(e["number"]) for e in self.episodes()]
+
+    def episode_meta(self, number: int) -> dict | None:
+        for ep in self.episodes():
+            if int(ep["number"]) == number:
+                return ep
+        return None
+
+    def resolve_spec_path(self, episode: dict) -> Path:
+        return (self.root / episode["spec"]).resolve()
+
+    def resolve_spec_path_for_number(self, number: int) -> Path | None:
+        meta = self.episode_meta(number)
+        if meta is None:
+            return None
+        return self.resolve_spec_path(meta)
+
+    def is_final_episode(self, number: int) -> bool:
+        nums = self.episode_numbers()
+        return bool(nums) and number == max(nums)
+
+    def prev_episode_meta(self, number: int) -> dict | None:
+        return self.episode_meta(number - 1)
+
+    def next_episode_meta(self, number: int) -> dict | None:
+        return self.episode_meta(number + 1)
+
+    def story_bible_path(self) -> Path | None:
+        rel = self.data.get("story_bible")
+        if not rel:
+            return None
+        path = (self.root / rel).resolve()
+        return path if path.exists() else None
+
+    def adaptation_design_path(self) -> Path | None:
+        rel = self.data.get("adaptation_design")
+        if not rel:
+            return None
+        path = (self.root / rel).resolve()
+        return path if path.exists() else None
+
+    def series_output_dir(self) -> Path:
+        """Shared output for series-level artifacts (series-review)."""
+        out = self.root.parent / "output" / "latest" / "qa"
+        out.mkdir(parents=True, exist_ok=True)
+        return out
+
+    def load_episode_spec(self, number: int) -> dict | None:
+        path = self.resolve_spec_path_for_number(number)
+        if path is None or not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def prev_episode_final_page(self, episode_number: int) -> dict | None:
+        spec = self.load_episode_spec(episode_number - 1)
+        if not spec or not spec.get("pages"):
+            return None
+        last = max(spec["pages"], key=lambda p: int(p["page"]))
+        return {
+            "page": int(last["page"]),
+            "dialogue": [
+                d for panel in last.get("panels", [])
+                for d in panel.get("dialogue", [])
+            ],
+        }
+
+
+def resolve_series_json_path(project: Project) -> Path | None:
+    spec = project.spec
+    if spec.get("series_root"):
+        candidate = (project.spec_dir / spec["series_root"] / SERIES_JSON_NAME).resolve()
+        if candidate.exists():
+            return candidate
+    current = project.spec_dir
+    for _ in range(SERIES_ROOT_SEARCH_DEPTH):
+        candidate = current / SERIES_JSON_NAME
+        if candidate.exists():
+            return candidate.resolve()
+        if current.parent == current:
+            break
+        current = current.parent
+    return None
+
+
+def load_episode_spec_from_path(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def page_dialogue_texts(page: dict) -> list[str]:
+    texts: list[str] = []
+    for panel in page.get("panels", []):
+        for item in panel.get("dialogue", []):
+            text = item.get("text", "")
+            if text.strip():
+                texts.append(text)
+    return texts
+
+
+def final_page(project: Project) -> dict | None:
+    pages = project.pages()
+    if not pages:
+        return None
+    return max(pages, key=lambda p: int(p["page"]))
+
+
+def has_next_episode_teaser(project: Project, next_episode: int) -> bool:
+    page = final_page(project)
+    if page is None:
+        return False
+    combined = " ".join(page_dialogue_texts(page))
+    if "続く" in combined:
+        for match in NEXT_EPISODE_RE.finditer(combined):
+            if match.group(1) and int(match.group(1)) == next_episode:
+                return True
+        if f"第{next_episode}話" in combined or f"第 {next_episode} 話" in combined:
+            return True
+        return True  # 「続く」 alone counts
+    for match in NEXT_EPISODE_RE.finditer(combined):
+        if match.group(1) and int(match.group(1)) == next_episode:
+            return True
+    return False
+
+
 class Project:
     def __init__(self, spec_path: Path):
         self.spec_path = spec_path.resolve()
@@ -122,6 +293,19 @@ class Project:
     @property
     def is_carousel(self) -> bool:
         return self.format == "x-carousel"
+
+    @property
+    def is_series_episode(self) -> bool:
+        return self.format == "series-episode"
+
+    def series_context(self) -> SeriesContext | None:
+        if not self.is_series_episode:
+            return None
+        return SeriesContext.for_project(self)
+
+    def episode_number(self) -> int | None:
+        ep = self.spec.get("episode")
+        return int(ep) if ep is not None else None
 
     def log(self, event: dict) -> None:
         event = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), **event}
@@ -182,6 +366,49 @@ def dialogue_label(item: dict) -> str:
     return f'{names.get(kind, "文字")}: 「{item["text"]}」'
 
 
+def text_render_instructions(item: dict) -> list[str]:
+    """Per-item visual container rules for image generation (see docs/bubble_render_research.md)."""
+    if item.get("speaker"):
+        return [
+            "Container type: spoken dialogue (セリフ).",
+            "Draw a standard oval/ellipse speech balloon: solid black outline, white fill, same line weight as all text on the page.",
+            "Add one sharp tail pointing clearly to the speaker's mouth. This is audible speech, not thought or narration.",
+            "Do NOT use a cloud shape, rectangular caption box, or slanted narration frame for spoken dialogue.",
+        ]
+    kind = item.get("kind", "text")
+    if kind == "monologue":
+        return [
+            "Container type: inner thought ONLY (思考 / 心の声) — not narration, not action result.",
+            "Use ONLY when the character is thinking or deciding in this exact moment.",
+            "Draw a cloud-shaped thought balloon, NOT an oval speech balloon and NOT a plain or slanted rectangular box.",
+            "Connect to the thinking character's head with 3-5 small circular bubble dots (thought trail). No sharp mouth-pointing tail.",
+            "Place near the thinker's head/face. Other characters cannot hear this text.",
+            "Do NOT use this shape for factual results, time stamps, or retrospective narrator lines.",
+        ]
+    if kind == "caption":
+        return [
+            "Container type: narration / result / caption (地の文) — NOT inner thought.",
+            "Use for time, place, action outcomes, factual observations, or retrospective narrator lines.",
+            "Draw a slanted rectangular narration frame at a panel edge or corner: solid black outline, white fill, no tail, no bubble dots.",
+            "Do NOT connect this box to any character's head. Do NOT use a cloud shape or oval speech balloon.",
+            "If the art already shows the action, the caption states the result objectively — not as a thought bubble.",
+        ]
+    if kind == "sfx":
+        return [
+            "Container type: sound effect (効果音).",
+            "Draw as stylized integrated lettering in the art, not inside a speech or narration box.",
+        ]
+    if kind == "ui":
+        return [
+            "Container type: on-screen UI text.",
+            "Render only on the device screen surface, readable and large enough; not in a speech balloon.",
+        ]
+    return [
+        "Container type: plain text.",
+        "Use a consistent manga text style; do not mix with speech balloons unless the panel direction says otherwise.",
+    ]
+
+
 def build_prompt(project: Project, page: dict, model_hint: str, feedback: str | None = None) -> str:
     spec = project.spec
     page_no = int(page["page"])
@@ -202,6 +429,8 @@ def build_prompt(project: Project, page: dict, model_hint: str, feedback: str | 
             panel_lines.append("- Text to render in this panel, exactly:")
             for item in panel["dialogue"]:
                 panel_lines.append(f"  - {dialogue_label(item)}")
+                for line in text_render_instructions(item):
+                    panel_lines.append(f"    - {line}")
                 if item.get("speaker"):
                     panel_lines.append(
                         "    - Tail target only: "
@@ -234,6 +463,9 @@ TEXT RENDERING CONTRACT:
 - Do not invent any other text: no filler Japanese, fake UI labels, signage, numbers, watermarks, or random English.
 - If smartphone UI text is small, enlarge the phone screen rather than shrinking the text.
 - Speech balloons contain only the quoted speech. No speaker names, labels, colons, or brackets.
+- TEXT CONTAINER CONSISTENCY (entire work): keep outline weight, white fill, and font style unified across every page.
+- Spoken dialogue = oval balloon + sharp mouth tail. Inner thought (monologue) = cloud balloon + bubble-dot trail to head. Captions/results (caption) = slanted rectangle at panel edge, no tail, never connected to a character head. Never swap these shapes or semantic roles.
+- Follow each panel's per-item Container type lines exactly; do not default all text to the same white box shape.
 
 SCREEN PHYSICS (absolute rule):
 - A display can only be seen from its front. NEVER draw screen content on the back of a laptop lid, the back of a phone, or any surface facing away from the character using it.
@@ -266,6 +498,7 @@ QUALITY CHECK BEFORE FINAL IMAGE:
 - Every panel communicates one clear main idea and follows its Position line.
 - Reading order is unambiguous from upper right to lower left.
 - Balloons never cover faces, hands, or phone screens, and tails point at the speaker.
+- Spoken dialogue uses oval balloons with mouth tails only. Monologue uses cloud balloons with bubble trails only. Captions use slanted rectangles at panel edges only. These three must never look the same.
 {checks}
 {_feedback_block(feedback)}
 Model hint: {model_hint}
@@ -320,6 +553,9 @@ TEXT RENDERING CONTRACT:
 - Render each allowed string at most once unless a panel direction explicitly repeats it.
 - Do not invent any other text: no filler Japanese, fake UI labels, signage, numbers, watermarks, or random English.
 - Speech balloons contain only the quoted speech. No speaker names, labels, colons, or brackets.
+- TEXT CONTAINER CONSISTENCY (entire work): keep outline weight, white fill, and font style unified across every card.
+- Spoken dialogue = oval balloon + sharp mouth tail. Inner thought (monologue) = cloud balloon + bubble-dot trail to head. Captions/results (caption) = slanted rectangle at panel edge, no tail, never connected to a character head. Never swap these shapes or semantic roles.
+- Follow each panel's per-item Container type lines exactly; do not default all text to the same white box shape.
 
 SCREEN PHYSICS (absolute rule):
 - A display can only be seen from its front. NEVER draw screen content on the back of a laptop lid, the back of a phone, or any surface facing away from the character using it.
@@ -474,34 +710,6 @@ def verdict_feedback(v: dict) -> str:
     return "\n".join(lines)
 
 
-def _gen_best_of(project: Project, number: int, args) -> dict:
-    """Generate N candidates, vision-QA each, install the best one."""
-    cands = []
-    for i in range(args.candidates):
-        dest = project.latest / "candidates" / f"page_{number:02d}_cand{i + 1}.png"
-        try:
-            generate_page(project, number, args, dest=dest)
-        except Exception as exc:  # noqa: BLE001
-            print(json.dumps({"page": number, "cand": i + 1, "status": "error", "error": str(exc)}), flush=True)
-            continue
-        verdict = qa_page(project, number, args.qa_model, png_path=dest, save=False)
-        cands.append((verdict_score(verdict), dest, verdict))
-        print(json.dumps({"page": number, "cand": i + 1, "verdict": verdict.get("verdict"),
-                          "score": verdict_score(verdict)}), flush=True)
-    if not cands:
-        return {"page": number, "status": "error", "error": "all candidates failed"}
-    cands.sort(key=lambda c: c[0])
-    best_score, best_path, best_verdict = cands[0]
-    backup_page(project, number)
-    shutil.copy2(best_path, project.page_png(number))
-    (project.latest / "qa" / f"page_{number:02d}.json").write_text(
-        json.dumps(best_verdict, ensure_ascii=False, indent=2), encoding="utf-8")
-    project.log({"cmd": "gen-best-of", "page": number, "candidates": len(cands),
-                 "chosen": best_path.name, "verdict": best_verdict.get("verdict")})
-    return {"page": number, "status": "generated", "chosen": best_path.name,
-            "verdict": best_verdict.get("verdict")}
-
-
 def cmd_gen(project: Project, args) -> list[dict]:
     issues = run_lint(project)
     if issues["errors"] and not args.force:
@@ -510,9 +718,11 @@ def cmd_gen(project: Project, args) -> list[dict]:
     numbers = parse_pages(args.pages, [int(p["page"]) for p in project.pages()])
     if not args.pages and not args.all_pages:
         sys.exit("Refusing paid generation of all pages without --all-pages. Use --pages N.")
+    if args.candidates > 1:
+        sys.exit("best-of-N selection requires vision QA, which is no longer API-backed. Use --candidates 1.")
     calls = len(numbers) * max(1, args.candidates)
     print(f"Paid image calls: {calls} ({','.join(map(str, numbers))} x{max(1, args.candidates)})")
-    worker = _gen_best_of if args.candidates > 1 else generate_page
+    worker = generate_page
     results: list[dict] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         futures = {pool.submit(worker, project, n, args): n for n in numbers}
@@ -528,7 +738,7 @@ def cmd_gen(project: Project, args) -> list[dict]:
     return results
 
 
-# ---------------------------------------------------------------- vision QA
+# ---------------------------------------------------------------- agent QA
 
 QA_INSTRUCTIONS = """You are a strict but fair manga production QA inspector. You receive one generated manga page image and the JSON spec of what that page must contain. Work in two steps, then answer in JSON only.
 
@@ -571,31 +781,34 @@ def qa_payload(project: Project, page: dict) -> dict:
     }
 
 
-def qa_page(project: Project, number: int, qa_model: str, *,
+def qa_request_content(project: Project, number: int, png_path: Path) -> tuple[str, dict]:
+    page = project.page(number)
+    instructions = QA_INSTRUCTIONS
+    if project.is_carousel:
+        instructions += "\n\n" + QA_CAROUSEL_NOTE
+    payload = qa_payload(project, page)
+    payload["image_path"] = str(png_path)
+    content = (instructions
+               + "\n\nUse the image_path below. Inspect the image directly with your available image-reading tool; do not call external APIs."
+               + "\n\nSPEC:\n" + json.dumps(payload, ensure_ascii=False, indent=2))
+    return content, payload
+
+
+def qa_page(project: Project, number: int, *,
             png_path: Path | None = None, save: bool = True) -> dict:
     png_path = png_path or project.page_png(number)
     if not png_path.exists():
         return {"page": number, "verdict": "missing"}
-    page = project.page(number)
-    data_url = "data:image/png;base64," + base64.b64encode(png_path.read_bytes()).decode()
-    instructions = QA_INSTRUCTIONS
-    if project.is_carousel:
-        instructions += "\n\n" + QA_CAROUSEL_NOTE
-    content = [
-        {"type": "text", "text": instructions + "\n\nSPEC:\n" + json.dumps(qa_payload(project, page), ensure_ascii=False)},
-        {"type": "image_url", "image_url": {"url": data_url}},
-    ]
-    result = call_api(content, model=qa_model, max_tokens=4000)
-    text = extract_text(result).strip()
-    text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
-    try:
-        verdict = json.loads(text)
-    except json.JSONDecodeError:
-        verdict = {"verdict": "unparseable", "raw": text[:800]}
-    verdict["page"] = number
-    project.log({"cmd": "qa", "page": number, "model": qa_model,
-                 "verdict": verdict.get("verdict"),
-                 "cost": (result.get("usage") or {}).get("cost"), "file": png_path.name})
+    content, payload = qa_request_content(project, number, png_path)
+    if save:
+        (project.latest / "qa" / f"page_{number:02d}_request.md").write_text(content, encoding="utf-8")
+        (project.latest / "qa" / f"page_{number:02d}_payload.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    verdict = {"page": number, "verdict": "agent_review_required",
+               "image_path": str(png_path),
+               "request": str(project.latest / "qa" / f"page_{number:02d}_request.md")}
+    project.log({"cmd": "qa", "page": number, "mode": "agent_request",
+                 "cost": 0, "file": png_path.name})
     if save:
         (project.latest / "qa" / f"page_{number:02d}.json").write_text(
             json.dumps(verdict, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -604,10 +817,9 @@ def qa_page(project: Project, number: int, qa_model: str, *,
 
 def cmd_qa(project: Project, args) -> list[dict]:
     numbers = parse_pages(args.pages, [int(p["page"]) for p in project.pages()])
-    qa_model = args.qa_model
     verdicts: list[dict] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-        futures = {pool.submit(qa_page, project, n, qa_model): n for n in numbers}
+        futures = {pool.submit(qa_page, project, n): n for n in numbers}
         for fut in concurrent.futures.as_completed(futures):
             n = futures[fut]
             try:
@@ -618,7 +830,7 @@ def cmd_qa(project: Project, args) -> list[dict]:
             verdicts.append(v)
     verdicts.sort(key=lambda v: v["page"])
     summary = {
-        "model": qa_model,
+        "mode": "agent_request",
         "pass": [v["page"] for v in verdicts if v.get("verdict") == "pass"],
         "warn": [v["page"] for v in verdicts if v.get("verdict") == "warn"],
         "fail": [v["page"] for v in verdicts if v.get("verdict") == "fail"],
@@ -635,23 +847,29 @@ def cmd_fix(project: Project, args) -> None:
     numbers = parse_pages(args.pages, [int(p["page"]) for p in project.pages()])
     needs_human: list[int] = []
     for number in numbers:
-        verdict = qa_page(project, number, args.qa_model)
+        verdict_path = project.latest / "qa" / f"page_{number:02d}.json"
+        if not verdict_path.exists():
+            print(f"page {number}: no QA verdict found. Run qa and have an agent write {verdict_path}.", flush=True)
+            needs_human.append(number)
+            continue
+        verdict = json.loads(verdict_path.read_text(encoding="utf-8"))
         attempt = 0
-        while verdict.get("verdict") == "fail" and attempt < args.attempts:
-            attempt += 1
+        if verdict.get("verdict") == "fail" and attempt < args.attempts:
+            attempt = 1
             feedback = verdict_feedback(verdict)
             print(f"page {number}: fail -> regenerating with feedback (attempt {attempt})", flush=True)
             print(feedback[:500], flush=True)
             generate_page(project, number, args, feedback=feedback)
-            verdict = qa_page(project, number, args.qa_model)
-        if verdict.get("verdict") == "fail":
+            qa_page(project, number)
+            print(f"page {number}: regenerated. Agent QA request written; re-run QA review before further fixes.", flush=True)
+            needs_human.append(number)
+        elif verdict.get("verdict") == "fail":
             needs_human.append(number)
         print(f"page {number}: final verdict {verdict.get('verdict')}", flush=True)
         project.log({"cmd": "fix", "page": number, "attempts": attempt,
                      "final": verdict.get("verdict")})
     if needs_human:
-        print(f"ESCALATION: pages {needs_human} still fail after {args.attempts} attempts. "
-              "Human review needed - the spec or the criteria may need adjustment.")
+        print(f"ESCALATION: pages {needs_human} need agent QA before additional automatic fixes.")
     cmd_assemble(project, args)
 
 
@@ -845,13 +1063,90 @@ def lint_brand(project: Project, warnings: list[str], errors: list[str]) -> None
             warnings.append(f"brand 「{brand}」 appears only on the final page; stamp it at the discovery scene too")
 
 
+def lint_series_episode(project: Project, warnings: list[str], errors: list[str]) -> None:
+    """Serialized episode rules (requires format: series-episode)."""
+    ep_num = project.episode_number()
+    if ep_num is None:
+        errors.append("series-episode requires an integer 'episode' field")
+        return
+
+    ctx = project.series_context()
+    if ctx is None:
+        warnings.append("series-episode: series.json not found (set series_root or place series.json upstream)")
+        return
+
+    meta = ctx.episode_meta(ep_num)
+    if meta is None:
+        errors.append(f"episode {ep_num} not listed in {ctx.path}")
+    else:
+        expected = ctx.resolve_spec_path(meta)
+        if expected.resolve() != project.spec_path.resolve():
+            warnings.append(
+                f"spec path mismatch: series.json points to {expected}, linting {project.spec_path}")
+
+    if ep_num >= 2:
+        checks = " ".join(project.spec.get("quality_checks", []))
+        if not any(hint in checks for hint in CONTINUITY_HINTS):
+            warnings.append(
+                f"ep{ep_num}: quality_checks have no continuity/motif tracking hint "
+                f"(e.g. trackable, 追跡, 同一); consider adding cross-page motif lines")
+
+        prev_spec = ctx.load_episode_spec(ep_num - 1)
+        if prev_spec:
+            prev_count = len(prev_spec.get("characters", {}))
+            curr_count = len(project.spec.get("characters", {}))
+            if curr_count - prev_count >= 2:
+                warnings.append(
+                    f"ep{ep_num}: {curr_count} characters vs ep{ep_num - 1}'s {prev_count} "
+                    "(guideline: at most 1 new named character per episode)")
+
+    is_final = ctx.is_final_episode(ep_num)
+    has_teaser = has_next_episode_teaser(project, ep_num + 1)
+    if is_final:
+        if has_teaser:
+            warnings.append(f"ep{ep_num} is the series finale but the last page has a next-episode teaser")
+    elif not has_teaser:
+        last = final_page(project)
+        label = f"P{int(last['page'])}" if last else "last page"
+        warnings.append(
+            f"ep{ep_num}: {label} lacks a next-episode teaser "
+            f"(expect 「続く」 or 第{ep_num + 1}話 in final-page dialogue)")
+
+
+def lint_series_cross(ctx: SeriesContext, warnings: list[str], errors: list[str]) -> None:
+    """Cross-episode checks when linting via --series-root."""
+    nums = ctx.episode_numbers()
+    if not nums:
+        errors.append("series.json has no episodes")
+        return
+    expected = list(range(min(nums), max(nums) + 1))
+    missing = [n for n in expected if n not in nums]
+    if missing:
+        warnings.append(f"episode number gap in series.json: missing {missing}")
+
+    prev_count: int | None = None
+    for ep in ctx.episodes():
+        n = int(ep["number"])
+        spec_path = ctx.resolve_spec_path(ep)
+        if not spec_path.exists():
+            errors.append(f"ep{n}: spec missing at {spec_path}")
+            continue
+        spec = load_episode_spec_from_path(spec_path)
+        count = len(spec.get("characters", {}))
+        if prev_count is not None and count - prev_count >= 2:
+            warnings.append(
+                f"ep{n}: character count jumped from {prev_count} to {count} "
+                "(guideline: at most 1 new named character per episode)")
+        prev_count = count
+
+
 def run_lint(project: Project) -> dict:
     """Deterministic feedforward checks. Free, instant, runs before paid calls."""
     errors: list[str] = []
     warnings: list[str] = []
     forbidden = project.spec.get("forbidden_strings", [])
     if project.format not in VALID_FORMATS:
-        errors.append(f"unknown format '{project.format}' (use 'book' or 'x-carousel')")
+        errors.append(f"unknown format '{project.format}' (use 'book', 'x-carousel', or 'series-episode')")
     if project.is_carousel:
         lint_carousel(project, warnings, errors)
     else:
@@ -859,6 +1154,11 @@ def run_lint(project: Project) -> dict:
         # trailer-manga books; the carousel counterpart lives in lint_carousel.
         lint_beats(project, warnings, errors)
         lint_brand(project, warnings, errors)
+        if project.is_series_episode:
+            lint_series_episode(project, warnings, errors)
+    if project.spec.get("episode") is not None and project.format == "book":
+        warnings.append(
+            "spec has 'episode' but format is 'book'; use format: series-episode for serialized manga")
 
     for page in project.pages():
         n = int(page["page"])
@@ -938,7 +1238,12 @@ def run_lint(project: Project) -> dict:
     return {"errors": errors, "warnings": warnings}
 
 
-def cmd_lint(project: Project, args) -> None:
+def cmd_lint(project: Project | None, args) -> None:
+    if getattr(args, "series_root", None):
+        cmd_lint_series(Path(args.series_root), args)
+        return
+    if project is None:
+        sys.exit("lint requires --spec or --series-root")
     issues = run_lint(project)
     for w in issues["warnings"]:
         print(f"warn : {w}")
@@ -946,6 +1251,40 @@ def cmd_lint(project: Project, args) -> None:
         print(f"ERROR: {e}")
     print(f"lint: {len(issues['errors'])} errors, {len(issues['warnings'])} warnings")
     if issues["errors"]:
+        sys.exit(1)
+
+
+def cmd_lint_series(series_root: Path, args) -> None:
+    ctx = SeriesContext.from_root(series_root)
+    cross_errors: list[str] = []
+    cross_warnings: list[str] = []
+    lint_series_cross(ctx, cross_warnings, cross_errors)
+
+    total_errors = len(cross_errors)
+    total_warnings = len(cross_warnings)
+    for w in cross_warnings:
+        print(f"warn : {w}")
+    for e in cross_errors:
+        print(f"ERROR: {e}")
+
+    for ep in ctx.episodes():
+        n = int(ep["number"])
+        spec_path = ctx.resolve_spec_path(ep)
+        print(f"\n--- ep{n}: {spec_path} ---")
+        if not spec_path.exists():
+            continue
+        project = Project(spec_path)
+        issues = run_lint(project)
+        for w in issues["warnings"]:
+            print(f"warn : {w}")
+        for e in issues["errors"]:
+            print(f"ERROR: {e}")
+        print(f"lint ep{n}: {len(issues['errors'])} errors, {len(issues['warnings'])} warnings")
+        total_errors += len(issues["errors"])
+        total_warnings += len(issues["warnings"])
+
+    print(f"\nseries lint: {total_errors} errors, {total_warnings} warnings")
+    if total_errors:
         sys.exit(1)
 
 
@@ -978,9 +1317,61 @@ JSONのみで返答:
 top_fixesは効果の大きい順に最大5件。具体的な直し方まで書く。問題のないページはpage_notesに含めない。
 verdict=reviseは「生成前に直すべき構造問題がある」場合のみ。"""
 
+SERIES_EPISODE_REVIEW_INSTRUCTIONS = """あなたはプロの漫画編集者です。連載漫画の**1話分**のネーム（storyboard JSON）を、
+画像生成の前にレビューします。添付の編集原則ドキュメントを判断基準として使ってください。
+これはシリーズ全体の最終話ではなく、**単話の読み切り満足ではなく「続きが欲しい」**で評価する。
+
+重点的に見るもの:
+1. フック: 最初の5ページまでに読者の興味が作れているか。冒頭に大きい絵・顔の大きいコマがあるか
+2. 話単位の変化量: payload の emotional_delta が、この話の1ページ目↔最終ページで達成されているか
+3. 前話からの連続性: prev_episode_final がある場合、前話末の状態から自然に始まっているか
+4. キャラ: 価値観が行動で見えるか。新キャラ登場は1人以内か（ep2以降）
+5. ページ配分: 起承転結が概ね 起1/4・承1/4・転1/3・結1/8 に収まっているか
+6. ヒキとメクリ: 各ページ末尾は「続きが気になる」か。最終話でなければ最終ページは次話への問いを残す
+7. 大ゴマ配分: 見せ場級のコマが序盤・中盤にもあるか
+8. 読者コスト: 1コマ1主情報か。説明セリフを減らせる関係性か
+9. セリフ術: キャラが「言いたいこと」を言っているか。反復フレーズが設計されているか
+10. 裏付け: 登場人物の言動・知識に作中の根拠があるか
+
+読み切りの完結満足は**見ない**（シリーズ arc は series-review で評価する）。
+
+JSONのみで返答:
+{"overall": {"hook": "...", "emotional_delta": "...", "continuity": "...", "character": "...",
+  "page_allocation": "...", "hiki_mekuri": "...", "episode_cliffhanger": "...", "reader_cost": "..."},
+ "page_notes": [{"page": 1, "notes": ["..."]}],
+ "top_fixes": [{"priority": 1, "page": 3, "issue": "...", "fix": "..."}],
+ "verdict": "ship" | "revise"}
+
+top_fixesは効果の大きい順に最大5件。具体的な直し方まで書く。問題のないページはpage_notesに含めない。
+verdict=reviseは「生成前に直すべき構造問題がある」場合のみ。"""
+
+SERIES_REVIEW_INSTRUCTIONS = """あなたはプロの漫画編集者です。連載漫画シリーズ全体を、全話のネーム要約と
+story bible / 翻案設計を見比べてレビューします。添付の series_review_checklist と
+series_principles.md を最優先の判断基準にしてください。
+
+重点的に見るもの:
+1. 各話の emotional_delta が adaptation_design / series.json と一致しているか
+2. 反復モチーフの初出・変質が story bible の表と整合しているか
+3. 話間の設定矛盾（性別・外見・禁止事項・時系列）
+4. 各話ヒキが次話の premise と接続しているか
+5. シリーズ arc: 第1話開始状態 ↔ 最終話終了状態の変化量
+6. 1話1問題の原則が守られているか
+
+JSONのみで返答:
+{"overall": {"arc": "...", "motifs": "...", "continuity": "...", "episode_hooks": "..."},
+ "episode_notes": [{"episode": 1, "notes": ["..."]}],
+ "top_fixes": [{"priority": 1, "episode": 2, "issue": "...", "fix": "..."}],
+ "verdict": "ship" | "revise"}
+
+top_fixesは効果の大きい順に最大5件。verdict=reviseはシリーズ全体で生成前に直すべき構造問題がある場合のみ。"""
+
 
 def repo_docs_dir() -> Path:
     return Path(__file__).resolve().parent.parent / "docs"
+
+
+def repo_templates_dir() -> Path:
+    return Path(__file__).resolve().parent.parent / "templates"
 
 
 def review_principles(project: Project | None = None) -> str:
@@ -988,6 +1379,8 @@ def review_principles(project: Project | None = None) -> str:
              "review_checklist.md", "manga_craft_research.md"]
     if project is not None and project.is_carousel:
         names.append("x_ads_manga_principles.md")
+    if project is not None and project.is_series_episode:
+        names.append("series_principles.md")
     docs = []
     for name in names:
         path = repo_docs_dir() / name
@@ -996,9 +1389,17 @@ def review_principles(project: Project | None = None) -> str:
     return "\n\n".join(docs)
 
 
-def cmd_review(project: Project, args) -> None:
+def review_instructions(project: Project) -> str:
+    if project.is_carousel:
+        return REVIEW_INSTRUCTIONS
+    if project.is_series_episode:
+        return SERIES_EPISODE_REVIEW_INSTRUCTIONS
+    return REVIEW_INSTRUCTIONS
+
+
+def review_payload(project: Project) -> dict:
     spec = project.spec
-    payload = {
+    payload: dict = {
         "title": spec["title"],
         "format": project.format,
         "page_count": len(spec["pages"]),
@@ -1016,31 +1417,114 @@ def cmd_review(project: Project, args) -> None:
             for p in spec["pages"]
         ],
     }
+    if not project.is_series_episode:
+        return payload
+
+    ep_num = project.episode_number()
+    payload["episode"] = ep_num
+    ctx = project.series_context()
+    if ctx is not None and ep_num is not None:
+        payload["series_title"] = ctx.title
+        payload["series_slug"] = ctx.slug
+        meta = ctx.episode_meta(ep_num)
+        if meta and meta.get("emotional_delta"):
+            payload["emotional_delta"] = meta["emotional_delta"]
+        if ep_num >= 2:
+            prev_final = ctx.prev_episode_final_page(ep_num)
+            if prev_final:
+                payload["prev_episode_final"] = prev_final
+        payload["is_series_finale"] = ctx.is_final_episode(ep_num)
+    return payload
+
+
+def series_review_payload(ctx: SeriesContext) -> dict:
+    episodes_summary = []
+    for ep in ctx.episodes():
+        n = int(ep["number"])
+        spec_path = ctx.resolve_spec_path(ep)
+        entry: dict = {
+            "number": n,
+            "title": ep.get("title", ""),
+            "slug": ep.get("slug", ""),
+            "emotional_delta": ep.get("emotional_delta", ""),
+            "spec": str(spec_path),
+        }
+        if spec_path.exists():
+            project = Project(spec_path)
+            entry["page_count"] = len(project.pages())
+            entry["characters"] = list(project.spec.get("characters", {}).keys())
+            last = final_page(project)
+            if last:
+                entry["final_page_dialogue"] = page_dialogue_texts(last)
+        episodes_summary.append(entry)
+    return {
+        "series_title": ctx.title,
+        "series_slug": ctx.slug,
+        "episode_count": len(episodes_summary),
+        "episodes": episodes_summary,
+    }
+
+
+def review_request_content(project: Project, payload: dict) -> str:
     carousel_note = ""
     if project.is_carousel:
         carousel_note = ("\n\n===== フォーマット注意 =====\n"
                          "これはX広告カルーセル（1:1カード、2〜6枚、カード送りは左→右スワイプ）のネームであり、"
                          "冊子ではない。起承転結のページ配分基準は適用せず、hook→body→cta で評価する。"
                          "x_ads_manga_principles.md の「reviewで必ず見るもの」を最優先の観点にする。")
-    content = (REVIEW_INSTRUCTIONS + carousel_note
-               + "\n\n===== 編集原則ドキュメント =====\n" + review_principles(project)
-               + "\n\n===== ネーム(storyboard) =====\n" + json.dumps(payload, ensure_ascii=False))
-    result = call_api(content, model=args.review_model, max_tokens=24000)
-    (project.latest / "qa" / "review_raw.json").write_text(
-        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-    text = extract_text(result).strip()
-    text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
-    try:
-        review = json.loads(text)
-    except json.JSONDecodeError:
-        review = {"verdict": "unparseable", "raw": text[:3000]}
-    out = project.latest / "qa" / "review.json"
-    out.write_text(json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8")
-    project.log({"cmd": "review", "model": args.review_model,
-                 "verdict": review.get("verdict"),
-                 "cost": (result.get("usage") or {}).get("cost")})
-    print(json.dumps(review, ensure_ascii=False, indent=2))
-    print(f"review -> {out}")
+    series_note = ""
+    if project.is_series_episode:
+        series_note = ("\n\n===== フォーマット注意 =====\n"
+                       "これは連載漫画の1話分のネームである。"
+                       "読み切りの完結満足ではなく、話単位の変化量・前話連続性・次話ヒキで評価する。")
+    return (review_instructions(project) + carousel_note + series_note
+            + "\n\n===== 編集原則ドキュメント =====\n" + review_principles(project)
+            + "\n\n===== ネーム(storyboard) =====\n" + json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def series_review_request_content(ctx: SeriesContext, payload: dict) -> str:
+    parts = [SERIES_REVIEW_INSTRUCTIONS]
+    checklist = repo_templates_dir() / "series_review_checklist.md"
+    if checklist.exists():
+        parts.append("===== series_review_checklist.md =====\n" + checklist.read_text(encoding="utf-8"))
+    parts.append("===== series_principles.md =====\n"
+                   + (repo_docs_dir() / "series_principles.md").read_text(encoding="utf-8"))
+    bible = ctx.story_bible_path()
+    if bible:
+        parts.append(f"===== story_bible ({bible.name}) =====\n" + bible.read_text(encoding="utf-8"))
+    design = ctx.adaptation_design_path()
+    if design:
+        parts.append(f"===== adaptation_design ({design.name}) =====\n" + design.read_text(encoding="utf-8"))
+    parts.append("===== 全話要約 =====\n" + json.dumps(payload, ensure_ascii=False, indent=2))
+    return "\n\n".join(parts)
+
+
+def cmd_series_review(args) -> None:
+    ctx = SeriesContext.from_root(Path(args.series_root))
+    payload = series_review_payload(ctx)
+    content = series_review_request_content(ctx, payload)
+    out_dir = ctx.series_output_dir()
+    request_path = out_dir / "series_review_request.md"
+    payload_path = out_dir / "series_review_payload.json"
+    request_path.write_text(content, encoding="utf-8")
+    payload_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"series review request -> {request_path}")
+    print(f"series review payload -> {payload_path}")
+    print("OpenRouter not used. Have a coding agent read series_review_request.md "
+          "and write series_review.json alongside.")
+
+
+def cmd_review(project: Project, args) -> None:
+    payload = review_payload(project)
+    content = review_request_content(project, payload)
+    request_path = project.latest / "qa" / "review_request.md"
+    payload_path = project.latest / "qa" / "review_payload.json"
+    request_path.write_text(content, encoding="utf-8")
+    payload_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    project.log({"cmd": "review", "mode": "agent_request", "cost": 0})
+    print(f"review request -> {request_path}")
+    print(f"review payload -> {payload_path}")
+    print("OpenRouter not used. Have a coding agent read review_request.md and write qa/review.json.")
 
 
 # ---------------------------------------------------------------- prompts only
@@ -1057,20 +1541,37 @@ def cmd_prompts(project: Project, args) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Spec-driven manga production harness")
-    parser.add_argument("command", choices=["lint", "review", "prompts", "gen", "qa", "fix", "assemble", "charsheet"])
-    parser.add_argument("--spec", required=True, help="Path to storyboard spec JSON")
+    parser.add_argument("command", choices=["lint", "review", "series-review", "prompts", "gen",
+                                            "qa", "fix", "assemble", "charsheet"])
+    parser.add_argument("--spec", help="Path to storyboard spec JSON")
+    parser.add_argument("--series-root", help="Path to directory containing series.json (lint all episodes; series-review)")
     parser.add_argument("--pages", help="e.g. 1,5,8-10 (default: all)")
     parser.add_argument("--all-pages", action="store_true")
     parser.add_argument("--model", default=os.environ.get("OPENROUTER_MODEL", DEFAULT_GEN_MODEL))
-    parser.add_argument("--qa-model", default=os.environ.get("MANGAGEN_QA_MODEL", DEFAULT_QA_MODEL))
     parser.add_argument("--image-size", default=os.environ.get("OPENROUTER_IMAGE_SIZE", "1K"), choices=["1K", "2K", "4K"])
     parser.add_argument("--max-tokens", type=int, default=int(os.environ.get("OPENROUTER_MAX_TOKENS", DEFAULT_MAX_TOKENS)))
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--attempts", type=int, default=2, help="fix: max regen attempts per page")
     parser.add_argument("--candidates", type=int, default=1, help="gen: best-of-N QA-scored selection")
     parser.add_argument("--force", action="store_true", help="gen: proceed despite lint errors")
-    parser.add_argument("--review-model", default=os.environ.get("MANGAGEN_REVIEW_MODEL", "google/gemini-2.5-pro"))
     args = parser.parse_args()
+
+    if args.command == "series-review":
+        if not args.series_root:
+            sys.exit("series-review requires --series-root")
+        if args.spec:
+            sys.exit("series-review does not take --spec")
+        cmd_series_review(args)
+        return 0
+
+    if args.command == "lint" and args.series_root:
+        if args.spec:
+            sys.exit("lint: use --spec or --series-root, not both")
+        cmd_lint(None, args)
+        return 0
+
+    if not args.spec:
+        sys.exit(f"{args.command} requires --spec")
 
     project = Project(Path(args.spec))
     {

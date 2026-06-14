@@ -2,8 +2,13 @@ __pycache__/
 *.py[cod]
 .DS_Store
 .env
+.venv/
+node_modules/
+dist/
 .claude/
 .pytest_cache/
 
 # 生成物（全プロジェクト共通）
 **/manga/production/output/
+**/production/output/
+preveiw/public/onibaku/
