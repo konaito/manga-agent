@@ -1,6 +1,8 @@
 # デモプロジェクト: はじめてのタスク管理
 
-mangagen ハーネスの動作確認用サンプルです。架空のプロダクト「TaskFlow」を題材にした2ページの読み切り漫画です。
+mangagen ハーネスの動作確認用サンプルです。架空のプロダクト「TaskFlow」を題材にした2ページの読み切り漫画です（`format: book` 既定）。
+
+連載漫画の例は `projects/onibaku/` を参照。`format: series-episode` と `series.json` の使い方は `docs/harness.md` を見てください。
 
 ## ディレクトリ構成
 
@@ -28,8 +30,10 @@ python3 tools/mangagen.py prompts --spec $SPEC
 # ページ生成（課金。OPENROUTER_API_KEY が必要）
 python3 tools/mangagen.py gen --spec $SPEC --pages 1,2
 
-# ビジョンQA
+# エージェント画像QA依頼（無料）
 python3 tools/mangagen.py qa --spec $SPEC
+
+# coding agentが output/latest/qa/page_XX_request.md と画像を見て page_XX.json を作る
 ```
 
 ## 新規プロジェクトの作り方

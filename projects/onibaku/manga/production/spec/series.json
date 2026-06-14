@@ -1,0 +1,67 @@
+{
+  "title": "鬼畜-自分の悪意が見えなくなる日-",
+  "slug": "onibaku",
+  "format": "series",
+  "pages_per_episode": 16,
+  "story_bible": "story_bible.md",
+  "adaptation_design": "adaptation_design.md",
+  "shared_reference_images": [],
+  "episodes": [
+    {
+      "number": 1,
+      "slug": "ep01-yobimizu",
+      "title": "夜の呼び水",
+      "spec": "../../ep01-yobimizu/production/spec/storyboard.json",
+      "emotional_delta": "衝動の一言 → 玄関に他人の荷物"
+    },
+    {
+      "number": 2,
+      "slug": "ep02-isourou",
+      "title": "居候",
+      "spec": "../../ep02-isourou/production/spec/storyboard.json",
+      "emotional_delta": "一晩の客 → 「うん」で儀式化"
+    },
+    {
+      "number": 3,
+      "slug": "ep03-aoihikari",
+      "title": "青い光",
+      "spec": "../../ep03-aoihikari/production/spec/storyboard.json",
+      "emotional_delta": "iPhone譲渡 → 見ない選択の確立"
+    },
+    {
+      "number": 4,
+      "slug": "ep04-yonhyakuen",
+      "title": "四百円",
+      "spec": "../../ep04-yonhyakuen/production/spec/storyboard.json",
+      "emotional_delta": "経費混同 → 気づかれない感触"
+    },
+    {
+      "number": 5,
+      "slug": "ep05-koguchigenkin",
+      "title": "小口現金",
+      "spec": "../../ep05-koguchigenkin/production/spec/storyboard.json",
+      "emotional_delta": "信頼される → 解雇・Instagram服"
+    },
+    {
+      "number": 6,
+      "slug": "ep06-kurikaeshi",
+      "title": "反復の速度",
+      "spec": "../../ep06-kurikaeshi/production/spec/storyboard.json",
+      "emotional_delta": "転職 → 架空振込・逮捕"
+    },
+    {
+      "number": 7,
+      "slug": "ep07-genkou",
+      "title": "原稿",
+      "spec": "../../ep07-genkou/production/spec/storyboard.json",
+      "emotional_delta": "留置の電話 → 執行猶予・電話の終わり"
+    },
+    {
+      "number": 8,
+      "slug": "ep08-juusankenme",
+      "title": "十三件目",
+      "spec": "../../ep08-juusankenme/production/spec/storyboard.json",
+      "emotional_delta": "倉庫勤務 → メルカリを開く"
+    }
+  ]
+}

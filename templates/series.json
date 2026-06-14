@@ -1,0 +1,18 @@
+{
+  "title": "作品タイトル",
+  "slug": "my-series",
+  "format": "series",
+  "pages_per_episode": 16,
+  "story_bible": "story_bible.md",
+  "adaptation_design": "adaptation_design.md",
+  "shared_reference_images": [],
+  "episodes": [
+    {
+      "number": 1,
+      "slug": "ep01-first",
+      "title": "第1話タイトル",
+      "spec": "../../ep01-first/production/spec/storyboard.json",
+      "emotional_delta": "開始状態 → 終了状態（1行要約）"
+    }
+  ]
+}
