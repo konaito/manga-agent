@@ -54,11 +54,11 @@ import re
 import shutil
 import sys
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, JpegImagePlugin  # noqa: F401
+
+from image_provider import DirectOpenRouterProvider, get_provider, set_provider  # noqa: E402
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_GEN_MODEL = "openai/gpt-5.4-image-2"
@@ -103,13 +103,6 @@ def load_dotenv(path: Path) -> None:
         key, value = key.strip(), value.strip().strip('"').strip("'")
         if key and key not in os.environ:
             os.environ[key] = value
-
-
-def api_key() -> str:
-    key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENROUTER")
-    if not key:
-        sys.exit("OPENROUTER_API_KEY (or OPENROUTER) is required.")
-    return key
 
 
 class SeriesContext:
@@ -595,39 +588,14 @@ Model hint: {model_hint}
 
 def call_api(messages_content, *, model: str, max_tokens: int, timeout: int = 300,
              retries: int = 2, image_config: dict | None = None) -> dict:
-    payload: dict = {
-        "model": model,
-        "messages": [{"role": "user", "content": messages_content}],
-        "stream": False,
-        "max_tokens": max_tokens,
-    }
-    if image_config is not None:
-        payload["modalities"] = ["image", "text"]
-        payload["image_config"] = image_config
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    headers = {
-        "Authorization": f"Bearer {api_key()}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://local.mangagen",
-        "X-Title": "mangagen",
-    }
-    last: Exception | None = None
-    for attempt in range(1, retries + 2):
-        req = urllib.request.Request(
-            os.environ.get("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
-            data=data, headers=headers, method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-            last = exc
-            if isinstance(exc, urllib.error.HTTPError):
-                last = RuntimeError(f"HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:1500]}")
-            if attempt <= retries:
-                time.sleep(min(30, 2 ** attempt))
-    assert last is not None
-    raise last
+    return get_provider().generate(
+        messages_content,
+        model=model,
+        max_tokens=max_tokens,
+        timeout=timeout,
+        retries=retries,
+        image_config=image_config,
+    )
 
 
 def extract_image(result: dict) -> bytes:

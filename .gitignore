@@ -7,6 +7,7 @@ node_modules/
 dist/
 .claude/
 .pytest_cache/
+server/.vercel/
 
 # 生成物（全プロジェクト共通）
 **/manga/production/output/

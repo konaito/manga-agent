@@ -14,11 +14,12 @@
 ## ハーネス（作る仕組み）
 
 - [mangagen制作ハーネス](../harness.md) — 設計思想（lint→review→gen→qa→fix）/ 使い方 / 失敗モード
+- [ホスト型プロバイダー](../hosted-provider.md) — `manga login` / token 残高 / 運営サーバー経由の画像生成
 - [記事: AI生成漫画の検品観点](articles/visual-qa-checklist.md) — 実制作6冊から蓄積した11観点（画面の物理・手・読み順・ブランド露出ほか）と判定の運用
 - [記事: 読み順逆転ポストモーテム](articles/production-postmortem-reading-order.md) — 読み順逆転とmax_tokens地雷
 - [記事: デュアルPOVポストモーテム](articles/production-postmortem-dual-pov.md) — デュアルPOV設計とQA較正
 
 ## 運用メモ
 
-- APIキー: `OPENROUTER_API_KEY` または `OPENROUTER` 環境変数（画像出力を行う `gen` / `charsheet` / `fix` のみ）
+- APIキー: `OPENROUTER_API_KEY` または `OPENROUTER` 環境変数（画像出力を行う `gen` / `charsheet` / `fix` のみ）。ホスト型は `docs/hosted-provider.md` 参照
 - 実測コスト: 生成 ≈ $0.18/頁、`review` と `qa` はエージェント用依頼生成なので無料

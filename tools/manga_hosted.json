@@ -1,0 +1,6 @@
+{
+  "prelaunch": true,
+  "api_url": "https://manga-imi-chat.vercel.app",
+  "supabase_url": "https://rcbwggvdesuyndfbbjjt.supabase.co",
+  "supabase_anon_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjYndnZ3ZkZXN1eW5kZmJiamp0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjE2MDksImV4cCI6MjA5NzA5NzYwOX0.ADZ5CWoTvX7CrKJKI8R6irFY2e0w2px_ZoqNk_2NTkY"
+}
