@@ -7,6 +7,8 @@ node_modules/
 dist/
 .claude/
 .pytest_cache/
+.coverage
+htmlcov/
 server/.vercel/
 
 # 生成物（全プロジェクト共通）

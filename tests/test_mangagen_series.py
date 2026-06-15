@@ -5,52 +5,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 import mangagen  # noqa: E402
 
-
-def make_project(tmp_path, spec, rel="production/spec"):
-    spec_dir = tmp_path / rel
-    spec_dir.mkdir(parents=True)
-    spec_path = spec_dir / "storyboard.json"
-    spec_path.write_text(json.dumps(spec, ensure_ascii=False), encoding="utf-8")
-    return mangagen.Project(spec_path)
-
-
-def series_page(n, beat, text="セリフ", with_teaser=False):
-    dialogue = [{"speaker": "a", "text": text}]
-    if with_teaser:
-        dialogue.append({"kind": "text", "text": f"第{n + 1}話 次 — 続く"})
-    return {
-        "page": n,
-        "beat": beat,
-        "panels": [{
-            "id": f"p{n:02d}_01",
-            "pos": "top-wide",
-            "art": "scene",
-            "dialogue": dialogue,
-        }],
-    }
-
-
-def book_pages(count=1, teaser=False):
-    beats = ["ki", "sho", "ten", "ketsu"]
-    pages = []
-    for i in range(1, count + 1):
-        pages.append(series_page(i, beats[(i - 1) % 4], with_teaser=(teaser and i == count)))
-    return pages
-
-
-def series_episode_spec(episode, *, pages=None, teaser=False, **over):
-    spec = {
-        "title": f"テスト 第{episode}話",
-        "format": "series-episode",
-        "series": "test-series",
-        "episode": episode,
-        "global_art_prompt": "test",
-        "characters": {"a": "A-kun"},
-        "quality_checks": ["Motif trackable across pages"],
-        "pages": pages or book_pages(1, teaser=teaser),
-    }
-    spec.update(over)
-    return spec
+from conftest import (  # noqa: E402
+    book_pages,
+    make_project,
+    series_episode_spec,
+    series_page,
+)
 
 
 def write_series_json(series_root, episodes):
