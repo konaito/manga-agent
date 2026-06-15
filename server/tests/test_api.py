@@ -129,3 +129,45 @@ def test_generate_refunds_on_openrouter_failure(client, monkeypatch):
     resp = client.post("/v1/generate", json=payload, headers={"Authorization": f"Bearer {_token()}"})
     assert resp.status_code == 502
     assert refunds == [("user-1", 1, "generate_refund")]
+
+
+def test_generate_refunds_when_no_image(client, monkeypatch):
+    refunds = []
+
+    async def fake_debit(user_id: str, *, reason: str = "generate") -> int:
+        return 1
+
+    async def fake_forward(payload: dict) -> dict:
+        return {"choices": [{"message": {"images": []}}]}
+
+    async def fake_credit(user_id: str, *, amount: int = 1, reason: str = "refund") -> int:
+        refunds.append((user_id, amount, reason))
+        return 0
+
+    monkeypatch.setattr("app.main.debit_token", fake_debit)
+    monkeypatch.setattr("app.main.forward_generate", fake_forward)
+    monkeypatch.setattr("app.main.credit_token", fake_credit)
+
+    payload = {
+        "model": "openai/gpt-5.4-image-2",
+        "messages": [{"role": "user", "content": "draw"}],
+        "max_tokens": 100,
+    }
+    resp = client.post("/v1/generate", json=payload, headers={"Authorization": f"Bearer {_token()}"})
+    assert resp.status_code == 502
+    assert refunds == [("user-1", 1, "generate_no_image")]
+
+
+def test_generate_rejects_stream(client, monkeypatch):
+    async def fake_debit(user_id: str, *, reason: str = "generate") -> int:
+        return 1
+
+    monkeypatch.setattr("app.main.debit_token", fake_debit)
+    payload = {
+        "model": "openai/gpt-5.4-image-2",
+        "messages": [{"role": "user", "content": "draw"}],
+        "stream": True,
+    }
+    resp = client.post("/v1/generate", json=payload, headers={"Authorization": f"Bearer {_token()}"})
+    assert resp.status_code == 400
+

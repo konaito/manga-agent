@@ -16,7 +16,11 @@ manga = "manga_cli:main"
 dev = [
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "httpx",
+    "fastapi",
+    "PyJWT",
+    "python-multipart",
 ]
 server = [
     "fastapi",
@@ -26,11 +30,26 @@ server = [
     "python-multipart",
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "server/tests"]
 pythonpath = ["tools", "server"]
+addopts = "--cov=tools --cov=server/app --cov-report=term-missing"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["tools", "server/app"]
+omit = [
+    "server/app/__init__.py",
+    "server/main.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 90
 
 [build-system]
 requires = ["hatchling"]
