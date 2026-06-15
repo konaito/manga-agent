@@ -58,9 +58,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, JpegImagePlugin  # noqa: F401
 
-from image_provider import DirectOpenRouterProvider, get_provider, set_provider  # noqa: E402
+from image_provider import get_provider  # noqa: E402
 
-DEFAULT_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_GEN_MODEL = "openai/gpt-5.4-image-2"
 DEFAULT_MAX_TOKENS = 16384
 

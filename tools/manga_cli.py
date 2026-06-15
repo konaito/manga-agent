@@ -24,6 +24,8 @@ import mangagen  # noqa: E402
 from image_provider import DirectOpenRouterProvider, HostedMangaProvider, reset_provider, set_provider  # noqa: E402
 from manga_config import (  # noqa: E402
     DEFAULT_CALLBACK_PORT,
+    LOGIN_REQUIRED_MSG,
+    NOT_LOGGED_IN_MSG,
     api_url,
     clear_session,
     load_config,
@@ -52,14 +54,14 @@ def _supabase_headers() -> dict[str, str]:
 def refresh_session(session: dict) -> dict:
     refresh = session.get("refresh_token")
     if not refresh:
-        raise SystemExit("Session expired. Run: manga login <https://api-url>")
+        raise SystemExit(LOGIN_REQUIRED_MSG)
 
     token_url = f"{supabase_url()}/auth/v1/token?grant_type=refresh_token"
     with httpx.Client(timeout=30) as client:
         resp = client.post(token_url, headers=_supabase_headers(), json={"refresh_token": refresh})
     if resp.status_code >= 400:
         clear_session()
-        raise SystemExit("Session expired. Run: manga login <https://api-url>")
+        raise SystemExit(LOGIN_REQUIRED_MSG)
     data = resp.json()
     updated = {
         "access_token": data["access_token"],
@@ -79,6 +81,13 @@ def get_access_token() -> str | None:
     if expires_at and time.time() >= expires_at - 60:
         session = refresh_session(session)
     return session.get("access_token")
+
+
+def _require_access_token() -> str:
+    token = get_access_token()
+    if not token:
+        raise SystemExit(NOT_LOGGED_IN_MSG)
+    return token
 
 
 def parse_callback_tokens(path: str, query: str, fragment: str) -> dict[str, str]:
@@ -145,6 +154,16 @@ def wait_for_callback(port: int = DEFAULT_CALLBACK_PORT, *, timeout: int = 300) 
     return result
 
 
+def _session_from_callback(tokens: dict[str, str]) -> dict:
+    expires_in = int(tokens.get("expires_in", "3600"))
+    return {
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token", ""),
+        "expires_at": int(time.time()) + expires_in,
+        "email": "",
+    }
+
+
 def cmd_login(args: argparse.Namespace) -> None:
     base = resolve_login_api_url(args.api_url)
     cfg = load_config()
@@ -157,15 +176,7 @@ def cmd_login(args: argparse.Namespace) -> None:
     webbrowser.open(login_url)
 
     tokens = wait_for_callback(args.port, timeout=args.timeout)
-    expires_in = int(tokens.get("expires_in", "3600"))
-    email = ""
-    session = {
-        "access_token": tokens["access_token"],
-        "refresh_token": tokens.get("refresh_token", ""),
-        "expires_at": int(time.time()) + expires_in,
-        "email": email,
-    }
-    save_session(session)
+    save_session(_session_from_callback(tokens))
     print("Logged in successfully.")
 
 
@@ -175,9 +186,7 @@ def cmd_logout(_args: argparse.Namespace) -> None:
 
 
 def cmd_token(_args: argparse.Namespace) -> None:
-    token = get_access_token()
-    if not token:
-        raise SystemExit("Not logged in. Run: manga login <https://api-url>")
+    token = _require_access_token()
 
     with httpx.Client(timeout=30) as client:
         resp = client.get(
@@ -186,7 +195,7 @@ def cmd_token(_args: argparse.Namespace) -> None:
         )
     if resp.status_code == 401:
         clear_session()
-        raise SystemExit("Session expired. Run: manga login <https://api-url>")
+        raise SystemExit(LOGIN_REQUIRED_MSG)
     if resp.status_code >= 400:
         raise SystemExit(f"Failed to fetch balance: {resp.status_code} {resp.text[:500]}")
 
@@ -215,7 +224,7 @@ def resolve_provider():
     if os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENROUTER"):
         return DirectOpenRouterProvider()
 
-    raise SystemExit("Not logged in and no OPENROUTER_API_KEY. Run: manga login <https://api-url>")
+    raise SystemExit(f"{NOT_LOGGED_IN_MSG} and no OPENROUTER_API_KEY.")
 
 
 def cmd_gen(args: argparse.Namespace) -> None:

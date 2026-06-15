@@ -20,13 +20,6 @@ REFRESH_COOKIE = "manga_refresh_token"
 EMAIL_COOKIE = "manga_email"
 
 
-def public_base_url(request: Request) -> str:
-    configured = os.environ.get("MANGA_PUBLIC_URL", "").rstrip("/")
-    if configured:
-        return configured
-    return str(request.base_url).rstrip("/")
-
-
 def supabase_url() -> str:
     url = os.environ.get("SUPABASE_URL", "").rstrip("/")
     if not url:
@@ -152,30 +145,40 @@ def _user_from_request(request: Request) -> AuthUser | None:
         return None
 
 
-async def _sign_in_with_password(email: str, password: str) -> dict:
+def _auth_error_detail(resp: httpx.Response) -> str:
+    try:
+        data = resp.json()
+    except ValueError:
+        return resp.text[:300]
+    return str(data.get("error_description") or data.get("msg") or resp.text[:300])
+
+
+async def _supabase_auth_post(path: str, payload: dict, *, error_status: int) -> dict:
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
-            f"{supabase_url()}/auth/v1/token?grant_type=password",
+            f"{supabase_url()}{path}",
             headers=_supabase_headers(),
-            json={"email": email, "password": password},
+            json=payload,
         )
     if resp.status_code >= 400:
-        detail = resp.json().get("error_description") or resp.json().get("msg") or resp.text[:300]
-        raise HTTPException(status_code=401, detail=humanize_auth_error(str(detail)))
+        raise HTTPException(status_code=error_status, detail=humanize_auth_error(_auth_error_detail(resp)))
     return resp.json()
 
 
+async def _sign_in_with_password(email: str, password: str) -> dict:
+    return await _supabase_auth_post(
+        "/auth/v1/token?grant_type=password",
+        {"email": email, "password": password},
+        error_status=401,
+    )
+
+
 async def _sign_up_with_password(email: str, password: str) -> dict:
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(
-            f"{supabase_url()}/auth/v1/signup",
-            headers=_supabase_headers(),
-            json={"email": email, "password": password},
-        )
-    if resp.status_code >= 400:
-        detail = resp.json().get("error_description") or resp.json().get("msg") or resp.text[:300]
-        raise HTTPException(status_code=400, detail=humanize_auth_error(str(detail)))
-    data = resp.json()
+    data = await _supabase_auth_post(
+        "/auth/v1/signup",
+        {"email": email, "password": password},
+        error_status=400,
+    )
     if data.get("access_token"):
         return data
     session = data.get("session") or {}
