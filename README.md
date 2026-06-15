@@ -14,7 +14,9 @@ python3 tools/build_prompt.py --mode name-review path/to/draft.md
 
 生成されたプロンプトを任意のLLMに貼り付けて使います。
 
-### 2. ページ画像の生成（OpenRouter APIキーは画像出力だけ必要）
+### 2. ページ画像の生成
+
+**A. 自分の OpenRouter API キーを使う（従来どおり）**
 
 ```bash
 SPEC=examples/demo-product/manga/production/spec/storyboard.json
@@ -36,14 +38,28 @@ python3 tools/mangagen.py gen --spec $SPEC --pages 1,2
 python3 tools/mangagen.py qa --spec $SPEC
 ```
 
+**B. ホスト型プロバイダー（運営サーバー経由・ユーザー側 API キー不要）**
+
+```bash
+uv sync
+uv run manga login https://<hosted-api-url>
+uv run manga token
+uv run manga gen examples/demo-product/manga/production/spec/storyboard.json -page 1 2
+```
+
+認証・トークン残高・サーバー構成の詳細は **[docs/hosted-provider.md](docs/hosted-provider.md)** を参照。
+
 ## リポジトリ構成
 
 | パス | 役割 |
 |---|---|
 | `agents/manga_editor_agent.md` | 漫画編集者エージェントのシステムプロンプト |
 | `tools/mangagen.py` | スペック駆動の制作ハーネス（lint / review / gen / qa / fix） |
+| `tools/manga_cli.py` | ホスト型プロバイダー CLI（`manga login` / `token` / `gen`） |
 | `tools/build_prompt.py` | レビュー依頼プロンプトを組み立てるCLI |
+| `server/` | ホスト型プロバイダー API（FastAPI + Supabase + Vercel） |
 | `docs/` | 漫画クラフト原則・ハーネス設計・制作知見 |
+| `docs/hosted-provider.md` | ホスト型プロバイダーの認証・デプロイ手順 |
 | `docs/knowledge/INDEX.md` | タスク着手前に読む知見の目次 |
 | `templates/` | 企画入力・クラフトガイドのテンプレート |
 | `examples/demo-product/` | ハーネス動作確認用のサンプルプロジェクト |
