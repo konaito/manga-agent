@@ -82,6 +82,26 @@ def build_openrouter_payload(
     return payload
 
 
+def _post_generate(
+    url: str,
+    headers: dict[str, str],
+    messages_content,
+    *,
+    model: str,
+    max_tokens: int,
+    timeout: int,
+    retries: int,
+    image_config: dict | None,
+) -> dict:
+    payload = build_openrouter_payload(
+        messages_content,
+        model=model,
+        max_tokens=max_tokens,
+        image_config=image_config,
+    )
+    return _http_post_json(url, payload, headers, timeout=timeout, retries=retries)
+
+
 class DirectOpenRouterProvider:
     def generate(
         self,
@@ -93,24 +113,20 @@ class DirectOpenRouterProvider:
         retries: int = 2,
         image_config: dict | None = None,
     ) -> dict:
-        payload = build_openrouter_payload(
+        return _post_generate(
+            os.environ.get("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
+            {
+                "Authorization": f"Bearer {openrouter_api_key()}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://local.mangagen",
+                "X-Title": "mangagen",
+            },
             messages_content,
             model=model,
             max_tokens=max_tokens,
-            image_config=image_config,
-        )
-        headers = {
-            "Authorization": f"Bearer {openrouter_api_key()}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://local.mangagen",
-            "X-Title": "mangagen",
-        }
-        return _http_post_json(
-            os.environ.get("OPENROUTER_BASE_URL", DEFAULT_BASE_URL),
-            payload,
-            headers,
             timeout=timeout,
             retries=retries,
+            image_config=image_config,
         )
 
 
@@ -129,22 +145,18 @@ class HostedMangaProvider:
         retries: int = 2,
         image_config: dict | None = None,
     ) -> dict:
-        payload = build_openrouter_payload(
+        return _post_generate(
+            f"{self.api_url}/v1/generate",
+            {
+                "Authorization": f"Bearer {self.access_token}",
+                "Content-Type": "application/json",
+            },
             messages_content,
             model=model,
             max_tokens=max_tokens,
-            image_config=image_config,
-        )
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json",
-        }
-        return _http_post_json(
-            f"{self.api_url}/v1/generate",
-            payload,
-            headers,
             timeout=timeout,
             retries=retries,
+            image_config=image_config,
         )
 
 

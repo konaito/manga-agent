@@ -31,6 +31,12 @@ class GenerateRequest(BaseModel):
     image_config: dict[str, Any] | None = None
 
 
+def _response_images(result: dict[str, Any]) -> list[Any]:
+    choices = result.get("choices") or []
+    message = (choices[0] if choices else {}).get("message") or {}
+    return message.get("images") or []
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -56,11 +62,7 @@ async def generate(body: GenerateRequest, user: AuthUser = Depends(require_user)
         await credit_token(user.user_id, amount=1, reason="generate_refund")
         raise
 
-    # Refund if OpenRouter returned no usable image payload.
-    choices = result.get("choices") or []
-    message = (choices[0] if choices else {}).get("message") or {}
-    images = message.get("images") or []
-    if not images:
+    if not _response_images(result):
         await credit_token(user.user_id, amount=1, reason="generate_no_image")
         raise HTTPException(status_code=502, detail="OpenRouter returned no image")
 

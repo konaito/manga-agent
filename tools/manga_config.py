@@ -16,6 +16,12 @@ CONFIG_PATH = CONFIG_DIR / "config.json"
 
 DEFAULT_CALLBACK_PORT = 17489
 DEFAULT_API_URL = _HOSTED["api_url"]
+LOGIN_REQUIRED_MSG = "Session expired. Run: manga login <https://api-url>"
+NOT_LOGGED_IN_MSG = "Not logged in. Run: manga login <https://api-url>"
+
+
+def _config_value(config_key: str, env_var: str) -> str | None:
+    return os.environ.get(env_var) or load_config().get(config_key) or _HOSTED.get(config_key)
 
 
 def ensure_config_dir() -> None:
@@ -51,7 +57,7 @@ def clear_session() -> None:
 
 
 def supabase_url() -> str:
-    url = os.environ.get("MANGA_SUPABASE_URL") or load_config().get("supabase_url") or _HOSTED.get("supabase_url")
+    url = _config_value("supabase_url", "MANGA_SUPABASE_URL")
     if not url:
         raise SystemExit(
             "MANGA_SUPABASE_URL is not set. Export it or add supabase_url to "
@@ -61,7 +67,7 @@ def supabase_url() -> str:
 
 
 def supabase_anon_key() -> str:
-    key = os.environ.get("MANGA_SUPABASE_ANON_KEY") or load_config().get("supabase_anon_key") or _HOSTED.get("supabase_anon_key")
+    key = _config_value("supabase_anon_key", "MANGA_SUPABASE_ANON_KEY")
     if not key:
         raise SystemExit(
             "MANGA_SUPABASE_ANON_KEY is not set. Export it or add supabase_anon_key to "
@@ -101,8 +107,3 @@ def api_url() -> str:
         "No hosted API URL configured. Log in first:\n"
         "  manga login https://<hosted-api-url>"
     )
-
-
-def callback_url(port: int = DEFAULT_CALLBACK_PORT, *, base: str | None = None) -> str:
-    root = normalize_api_url(base) if base else api_url()
-    return f"{root}/auth/cli-callback?port={port}"
