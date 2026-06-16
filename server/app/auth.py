@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+import httpx
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -28,6 +29,20 @@ def _jwks_url() -> str:
     if not base:
         raise RuntimeError("SUPABASE_URL or SUPABASE_JWT_JWKS_URL is required")
     return f"{base}/auth/v1/.well-known/jwks.json"
+
+
+def _supabase_url() -> str:
+    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    if not url:
+        raise RuntimeError("SUPABASE_URL is required")
+    return url
+
+
+def _supabase_anon_key() -> str:
+    key = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("MANGA_SUPABASE_ANON_KEY")
+    if not key:
+        raise RuntimeError("SUPABASE_ANON_KEY is required")
+    return key
 
 
 @lru_cache(maxsize=1)
@@ -71,9 +86,34 @@ def decode_access_token(token: str) -> AuthUser:
     return AuthUser(user_id=user_id, email=email)
 
 
+async def _auth_user_from_supabase(token: str) -> AuthUser:
+    headers = {
+        "apikey": _supabase_anon_key(),
+        "Authorization": f"Bearer {token}",
+    }
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.get(f"{_supabase_url()}/auth/v1/user", headers=headers)
+    if resp.status_code >= 400:
+        raise HTTPException(status_code=401, detail="Invalid access token")
+
+    data = resp.json()
+    user_id = data.get("id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Missing subject in token")
+    return AuthUser(user_id=user_id, email=data.get("email"))
+
+
 async def require_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> AuthUser:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Bearer token required")
-    return decode_access_token(credentials.credentials)
+    try:
+        return decode_access_token(credentials.credentials)
+    except HTTPException as exc:
+        try:
+            return await _auth_user_from_supabase(credentials.credentials)
+        except (HTTPException, RuntimeError) as fallback_exc:
+            if isinstance(fallback_exc, HTTPException):
+                raise fallback_exc from exc
+            raise exc

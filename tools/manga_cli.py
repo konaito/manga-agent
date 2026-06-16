@@ -188,12 +188,23 @@ def cmd_logout(_args: argparse.Namespace) -> None:
 def cmd_token(_args: argparse.Namespace) -> None:
     token = _require_access_token()
 
-    with httpx.Client(timeout=30) as client:
-        resp = client.get(
-            f"{api_url()}/v1/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+    def fetch_balance(access_token: str):
+        with httpx.Client(timeout=30) as client:
+            return client.get(
+                f"{api_url()}/v1/me",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+    resp = fetch_balance(token)
     if resp.status_code == 401:
+        session = load_session()
+        if session and session.get("refresh_token"):
+            refreshed = refresh_session(session)
+            resp = fetch_balance(refreshed["access_token"])
+        if resp.status_code != 401:
+            data = resp.json()
+            print(data["manga_tokens"])
+            return
         clear_session()
         raise SystemExit(LOGIN_REQUIRED_MSG)
     if resp.status_code >= 400:
