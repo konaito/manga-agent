@@ -42,10 +42,14 @@ python3 tools/mangagen.py qa --spec $SPEC
 
 ```bash
 uv sync
-uv run manga login https://<hosted-api-url>
-uv run manga token
-uv run manga gen examples/demo-product/manga/production/spec/storyboard.json -page 1 2
+uv tool install -e .
+
+manga login https://<hosted-api-url>
+manga token
+manga gen examples/demo-product/manga/production/spec/storyboard.json -page 1 2
 ```
+
+`uv tool install -e .` を実行すると、このリポジトリのCLIが編集可能インストールされ、`manga` コマンドを直接使えるようになります。
 
 認証・トークン残高・サーバー構成の詳細は **[docs/hosted-provider.md](docs/hosted-provider.md)** を参照。
 
