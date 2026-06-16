@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from manga_hosted import is_prelaunch, load_hosted_defaults
 
@@ -80,7 +81,13 @@ def normalize_api_url(url: str) -> str:
     value = url.strip().rstrip("/")
     if not value.startswith("https://"):
         raise SystemExit(f"API URL must start with https:// (got: {url!r})")
-    return value
+    parsed = urlsplit(value)
+    path = parsed.path.rstrip("/")
+    if path == "/login":
+        path = ""
+    elif path:
+        raise SystemExit(f"API URL must be the hosted base URL, not a path (got: {url!r})")
+    return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
 
 
 def resolve_login_api_url(explicit: str | None) -> str:
