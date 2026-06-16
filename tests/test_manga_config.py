@@ -70,6 +70,19 @@ def test_api_url_from_config(config_dir):
     assert manga_config.api_url() == "https://cfg-api.test"
 
 
+def test_normalize_api_url_accepts_pasted_login_url():
+    assert manga_config.normalize_api_url("https://api.example.test/login") == "https://api.example.test"
+    assert (
+        manga_config.normalize_api_url("https://api.example.test/login?cli_port=17489")
+        == "https://api.example.test"
+    )
+
+
+def test_normalize_api_url_rejects_other_paths():
+    with pytest.raises(SystemExit, match="hosted base URL"):
+        manga_config.normalize_api_url("https://api.example.test/dashboard")
+
+
 def test_api_url_missing_exits(config_dir, monkeypatch):
     monkeypatch.setattr(manga_config, "is_prelaunch", lambda: True)
     with pytest.raises(SystemExit, match="No hosted API URL"):
