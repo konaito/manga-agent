@@ -194,6 +194,40 @@ def test_cmd_token_prints_balance(config_dir, capsys):
     assert capsys.readouterr().out.strip() == "42"
 
 
+def test_cmd_token_refreshes_after_api_401(config_dir, monkeypatch, capsys):
+    manga_config.save_session({
+        "access_token": "old-jwt",
+        "refresh_token": "refresh",
+        "expires_at": int(time.time()) + 3600,
+    })
+    manga_config.save_config({"api_url": "https://api.hosted.test"})
+    monkeypatch.setattr(
+        manga_cli,
+        "refresh_session",
+        lambda session: {**session, "access_token": "new-jwt"},
+    )
+
+    class FakeResponse:
+        def __init__(self, status_code: int, payload: dict | None = None):
+            self.status_code = status_code
+            self._payload = payload or {}
+            self.text = ""
+
+        def json(self):
+            return self._payload
+
+    with patch("manga_cli.httpx.Client") as client_cls:
+        get = client_cls.return_value.__enter__.return_value.get
+        get.side_effect = [
+            FakeResponse(401),
+            FakeResponse(200, {"manga_tokens": 12}),
+        ]
+        manga_cli.cmd_token(argparse.Namespace())
+
+    assert capsys.readouterr().out.strip() == "12"
+    assert get.call_args_list[1].kwargs["headers"]["Authorization"] == "Bearer new-jwt"
+
+
 def test_session_from_callback_builds_expiry():
     session = manga_cli._session_from_callback(
         {"access_token": "a", "refresh_token": "r", "expires_in": "120"}
@@ -235,4 +269,3 @@ def test_main_parser_logout(config_dir):
     with patch("sys.argv", ["manga", "logout"]):
         assert manga_cli.main() == 0
     assert manga_config.load_session() is None
-

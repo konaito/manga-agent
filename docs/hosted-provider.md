@@ -71,6 +71,8 @@ export SUPABASE_URL=https://rcbwggvdesuyndfbbjjt.supabase.co
 export SUPABASE_ANON_KEY=...
 export SUPABASE_SERVICE_ROLE_KEY=...
 export SUPABASE_JWT_JWKS_URL=https://rcbwggvdesuyndfbbjjt.supabase.co/auth/v1/.well-known/jwks.json
+# HS256 プロジェクトでローカルJWT検証を使う場合のみ。未設定時は Supabase Auth /user で検証フォールバック
+export SUPABASE_JWT_SECRET=...
 export OPENROUTER_API_KEY=...
 export MANGA_PUBLIC_URL=http://127.0.0.1:8000
 uv run uvicorn app.main:app --reload --port 8000
@@ -91,7 +93,8 @@ vercel deploy --prod --scope imi-chat
 | `SUPABASE_URL` | Supabase プロジェクト URL |
 | `SUPABASE_ANON_KEY` | Web ログイン用（password grant） |
 | `SUPABASE_SERVICE_ROLE_KEY` | DB / RPC 操作 |
-| `SUPABASE_JWT_JWKS_URL` | JWT 検証 |
+| `SUPABASE_JWT_JWKS_URL` | JWT 検証（JWKS型プロジェクト） |
+| `SUPABASE_JWT_SECRET` | JWT 検証（HS256型プロジェクト、任意。未設定時は Supabase Auth `/user` にフォールバック） |
 | `OPENROUTER_API_KEY` | 運営側 OpenRouter キー |
 | `MANGA_PUBLIC_URL` | `https://manga-imi-chat.vercel.app` |
 | `MANGA_COOKIE_SECURE` | `true` |
