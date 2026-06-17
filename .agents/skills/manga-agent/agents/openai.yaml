@@ -1,0 +1,4 @@
+interface:
+  display_name: "Manga Agent"
+  short_description: "Manga review and mangagen workflows"
+  default_prompt: "Use $manga-agent to review a manga script, name, storyboard, or run the mangagen production workflow."
